@@ -1,5 +1,6 @@
 import React from "react";
 import { redirect } from "react-router";
+import HomePage from "../presentation/pages/HomePage";
 
 export function meta() {
   return [
@@ -13,9 +14,5 @@ export async function loader() {
 }
 
 export default function Home() {
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-lg">Redirecting...</div>
-    </div>
-  );
+  return <HomePage />;
 }
