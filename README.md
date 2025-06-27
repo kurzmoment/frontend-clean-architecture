@@ -1,224 +1,189 @@
-# Full-Stack Project Manager with DDD Frontend
+# Project Manager - Full Stack Application
 
-A complete full-stack application with an Express.js backend and a React frontend built using Domain-Driven Design (DDD) principles and React Router v7's modern data loading patterns.
+A modern project management application built with React Router v7 (SSR), Express.js, and SQLite.
 
-## Project Structure
+## Features
 
-```
-ft-be/
-├── backend/                 # Express.js API server
-│   ├── config.env          # Environment configuration
-│   ├── database.js         # SQLite database setup
-│   ├── middleware/         # Authentication middleware
-│   ├── routes/             # API routes (auth, projects, confidents, tags)
-│   └── server.js           # Express server
-└── frontend/               # React Router v7 frontend with DDD
-    ├── app/
-    │   ├── domain/         # Domain layer (entities, business rules)
-    │   ├── application/    # Application layer (services, use cases)
-    │   ├── infrastructure/ # Infrastructure layer (repositories, API client)
-    │   └── routes/         # React Router v7 file-based routes with loaders/actions
-    └── package.json
-```
+- **Server-Side Rendering (SSR)** with React Router v7
+- **Authentication** with JWT tokens and cookies
+- **Project Management** - Create, edit, and delete projects
+- **Confident Management** - Manage confident items
+- **Tag System** - Organize projects with tags
+- **Modern UI** with Tailwind CSS
 
-## Backend Features
+## Architecture
 
-- **Express.js 4.x** with SQLite database
-- **JWT Authentication** with bcrypt password hashing
-- **Cookie-based Authentication** with httpOnly cookies for security
-- **CORS Configuration** with credentials support
-- **CRUD Operations** for:
-  - Projects (with relationships to confidents and tags)
-  - Confidents (people/resources)
-  - Tags (categorization)
-- **RESTful API** with proper error handling
+### Frontend (React Router v7 + SSR)
 
-## Frontend Features (DDD Architecture + React Router v7)
+- **Framework**: React Router v7 with built-in SSR
+- **Styling**: Tailwind CSS
+- **API Client**: Custom fetch-based client with SSR support
+- **State Management**: React hooks with server-side data loading
 
-### Domain Layer (`app/domain/`)
+### Backend (Express.js)
 
-- **Entities**: User, Project, Confident, Tag with TypeScript interfaces
-- **Domain Objects**: Immutable entities with business logic
-- **Value Objects**: Request/Response DTOs
+- **Framework**: Express.js
+- **Database**: SQLite with better-sqlite3
+- **Authentication**: JWT tokens with httpOnly cookies
+- **CORS**: Configured for both development and SSR
 
-### Application Layer (`app/application/`)
+## Getting Started
 
-- **Services**: Business logic orchestration
-  - AuthService: Authentication and user management with cookie handling
-  - ProjectService: Project operations
-  - ConfidentService: Confident management
-  - TagService: Tag operations
+### Prerequisites
 
-### Infrastructure Layer (`app/infrastructure/`)
+- Node.js 18+
+- npm or yarn
 
-- **API Client**: Native fetch-based HTTP client with cookie support
-- **Repositories**: Data access abstraction
-  - AuthRepository: Authentication API calls
-  - ProjectRepository: Project CRUD operations
-  - ConfidentRepository: Confident management
-  - TagRepository: Tag operations
+### Installation
 
-### Routes Layer (`app/routes/`)
+1. **Clone the repository**
 
-- **React Router v7**: File-based routing with modern data patterns
-- **Loaders**: Server-side data fetching before route rendering
-- **Actions**: Form submissions and mutations
-- **Authentication Guards**: Automatic redirects for unauthenticated users
+   ```bash
+   git clone <repository-url>
+   cd ft-be
+   ```
 
-## React Router v7 Modern Patterns
+2. **Install dependencies**
 
-The application uses React Router v7's modern data loading patterns:
+   ```bash
+   # Install backend dependencies
+   cd backend
+   npm install
 
-### **Loaders** - Server-side data fetching
+   # Install frontend dependencies
+   cd ../frontend
+   npm install
+   ```
 
-```typescript
-export async function loader({ request }: LoaderFunctionArgs) {
-  // Fetch data before rendering
-  const projects = await apiClient.get("/projects");
-  return { projects: projects.data };
-}
-```
+3. **Configure environment**
+   ```bash
+   # Copy and edit the backend config
+   cd ../backend
+   cp config.env.example config.env
+   # Edit config.env with your JWT secret
+   ```
 
-### **Actions** - Form submissions and mutations
+### Running the Application
 
-```typescript
-export async function action({ request }: ActionFunctionArgs) {
-  const formData = await request.formData();
-  // Handle form submission
-  const result = await apiClient.post("/projects", data);
-  return redirect("/dashboard");
-}
-```
+1. **Start the backend server**
 
-### **Benefits:**
+   ```bash
+   cd backend
+   npm start
+   ```
 
-- **Server-side rendering** ready
-- **Automatic loading states**
-- **Optimistic updates**
-- **Error boundaries**
-- **Type-safe data flow**
+   The backend will run on `http://localhost:5001`
 
-## Authentication System
+2. **Start the frontend development server**
 
-The application uses a **secure cookie-based authentication system**:
+   ```bash
+   cd frontend
+   npm run dev
+   ```
 
-- **JWT Tokens**: Stored in httpOnly cookies for security
-- **User Data**: Stored in client-accessible cookies for UI state
-- **Automatic Token Handling**: Cookies are automatically sent with requests
-- **Secure Logout**: Both client and server-side cookie cleanup
-- **CORS Configuration**: Properly configured for cross-origin requests
+   The frontend will run on `http://localhost:5173`
 
-### Security Features:
+3. **Build and run in production mode**
 
-- `httpOnly: true` for auth tokens (prevents XSS)
-- `secure: true` in production (HTTPS only)
-- `sameSite: 'strict'` (CSRF protection)
-- 7-day token expiration
-- Automatic token refresh handling
+   ```bash
+   # Build the frontend
+   cd frontend
+   npm run build
 
-## Setup Instructions
+   # Start the production server
+   npm start
+   ```
 
-### Backend Setup
+## SSR Configuration
 
-```bash
-cd backend
-npm install
-npm start
-```
+The application is configured for Server-Side Rendering with the following setup:
 
-The backend will run on `http://localhost:5001`
+### API Client Configuration
 
-### Frontend Setup
+- **Server-side requests**: Direct calls to `http://localhost:5001/api`
+- **Client-side requests**: Proxy through Vite dev server to `/api`
 
-```bash
-cd frontend
-npm run dev
-```
+### Route Loaders
 
-The frontend will run on `http://localhost:5173`
+- **Dashboard**: Loads user data, projects, confidents, and tags on the server
+- **Authentication**: Handles login/register with proper redirects
+- **Error Handling**: Proper error boundaries for SSR
+
+### Development vs Production
+
+- **Development**: Uses Vite dev server with API proxy
+- **Production**: Uses React Router's built-in SSR server
 
 ## API Endpoints
 
 ### Authentication
 
-- `POST /api/auth/register` - User registration (sets cookies)
-- `POST /api/auth/login` - User login (sets cookies)
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login user
 - `GET /api/auth/me` - Get current user
-- `POST /api/auth/logout` - User logout (clears cookies)
+- `POST /api/auth/logout` - Logout user
 
 ### Projects
 
 - `GET /api/projects` - Get all projects
-- `GET /api/projects/:id` - Get single project
-- `POST /api/projects` - Create project
+- `POST /api/projects` - Create new project
 - `PUT /api/projects/:id` - Update project
 - `DELETE /api/projects/:id` - Delete project
 
 ### Confidents
 
 - `GET /api/confidents` - Get all confidents
-- `GET /api/confidents/:id` - Get single confident
-- `POST /api/confidents` - Create confident
+- `POST /api/confidents` - Create new confident
 - `PUT /api/confidents/:id` - Update confident
 - `DELETE /api/confidents/:id` - Delete confident
 
 ### Tags
 
 - `GET /api/tags` - Get all tags
-- `GET /api/tags/:id` - Get single tag
-- `POST /api/tags` - Create tag
+- `POST /api/tags` - Create new tag
 - `PUT /api/tags/:id` - Update tag
 - `DELETE /api/tags/:id` - Delete tag
 
-## DDD Benefits Implemented
+## Database Schema
 
-1. **Separation of Concerns**: Clear boundaries between domain, application, infrastructure, and routes layers
-2. **Domain Entities**: Rich domain objects with business logic
-3. **Repository Pattern**: Abstracted data access
-4. **Service Layer**: Business logic orchestration
-5. **Dependency Inversion**: High-level modules don't depend on low-level modules
-6. **Type Safety**: Full TypeScript implementation
+The application uses SQLite with the following tables:
 
-## Features
+- `users` - User accounts
+- `projects` - Project data
+- `confidents` - Confident items
+- `tags` - Tag definitions
+- `project_confidents` - Many-to-many relationship
+- `project_tags` - Many-to-many relationship
 
-- ✅ **Modern React Router v7** with loaders and actions
-- ✅ **Native Fetch API** (no external HTTP libraries)
-- ✅ **Secure Cookie-based Authentication** (no localStorage)
-- ✅ **Server-side data fetching** with loaders
-- ✅ **Form handling** with actions
-- ✅ **User authentication** (login/register/logout)
-- ✅ **JWT token management** with httpOnly cookies
-- ✅ **Project CRUD operations**
-- ✅ **Responsive UI** with Tailwind CSS
-- ✅ **Error handling** and loading states
-- ✅ **Clean DDD architecture**
-- ✅ **TypeScript** throughout
-- ✅ **File-based routing**
+## Development
 
-## Security Improvements
+### Adding New Routes
 
-- **No localStorage**: All sensitive data stored in secure cookies
-- **httpOnly Cookies**: Prevents XSS attacks on authentication tokens
-- **SameSite Protection**: Prevents CSRF attacks
-- **Secure Headers**: Proper CORS and security configurations
-- **Automatic Token Handling**: No manual token management required
-- **Server-side Authentication**: Loaders verify authentication before rendering
+1. Create a new route file in `frontend/app/routes/`
+2. Add the route to `frontend/app/routes.ts`
+3. Implement loader function for SSR data loading
+4. Add proper error handling
 
-## Next Steps
+### Adding New API Endpoints
 
-To complete the setup:
+1. Create route handler in `backend/routes/`
+2. Add middleware for authentication if needed
+3. Update frontend API client
+4. Add proper error handling
 
-1. Start both servers:
+## Troubleshooting
 
-   ```bash
-   # Terminal 1 - Backend
-   cd backend && npm start
+### Common Issues
 
-   # Terminal 2 - Frontend
-   cd frontend && npm run dev
-   ```
+1. **CORS Errors**: Ensure backend CORS is configured for both dev and SSR ports
+2. **Authentication Issues**: Check JWT secret and cookie settings
+3. **SSR Data Loading**: Verify API client configuration for server vs client
+4. **Port Conflicts**: Ensure backend runs on 5001 and frontend dev on 5173
 
-2. Access the application at `http://localhost:5173`
+### Debug Mode
 
-The application will automatically redirect to the login page, where you can register a new account or sign in. Once authenticated, you'll be taken to the dashboard to manage your projects. The authentication system uses secure cookies and React Router v7's modern data loading patterns for optimal performance and security.
-# clean-architecure-frontend
+The application includes debug information in the login page to help troubleshoot API connectivity issues.
+
+## License
+
+This project is licensed under the MIT License.

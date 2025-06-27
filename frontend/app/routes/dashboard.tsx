@@ -1,5 +1,9 @@
 import React from "react";
-import { useNavigate } from "react-router";
+import {
+  useNavigate,
+  useLoaderData,
+  type LoaderFunctionArgs,
+} from "react-router";
 import { apiClient } from "../infrastructure/api/client";
 import type { Project, CreateProjectRequest } from "../domain/entities/Project";
 
@@ -26,15 +30,67 @@ interface Tag {
   created_at: string;
 }
 
+interface DashboardData {
+  user: any;
+  projects: Project[];
+  confidents: Confident[];
+  tags: Tag[];
+}
+
+export async function loader({
+  request,
+}: LoaderFunctionArgs): Promise<DashboardData> {
+  try {
+    console.log("Loading dashboard data on server...");
+
+    // Check authentication
+    const authResponse = await apiClient.get<{ user: any }>(
+      "/auth/me",
+      request
+    );
+    if (!authResponse.ok) {
+      throw new Response("Authentication failed", { status: 401 });
+    }
+
+    // Load all data in parallel
+    const [projectsResponse, confidentsResponse, tagsResponse] =
+      await Promise.all([
+        apiClient.get<Project[]>("/projects", request),
+        apiClient.get<Confident[]>("/confidents", request),
+        apiClient.get<Tag[]>("/tags", request),
+      ]);
+
+    return {
+      user: authResponse.data.user,
+      projects: projectsResponse.ok ? projectsResponse.data : [],
+      confidents: confidentsResponse.ok ? confidentsResponse.data : [],
+      tags: tagsResponse.ok ? tagsResponse.data : [],
+    };
+  } catch (error) {
+    console.error("Dashboard loader error:", error);
+    if (error instanceof Response) {
+      throw error;
+    }
+    throw new Response("Failed to load dashboard data", { status: 500 });
+  }
+}
+
 type TabType = "projects" | "confidents" | "tags";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [user, setUser] = React.useState<any>(null);
-  const [projects, setProjects] = React.useState<Project[]>([]);
-  const [confidents, setConfidents] = React.useState<Confident[]>([]);
-  const [tags, setTags] = React.useState<Tag[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const {
+    user,
+    projects: initialProjects,
+    confidents: initialConfidents,
+    tags: initialTags,
+  } = useLoaderData<DashboardData>();
+
+  const [projects, setProjects] = React.useState<Project[]>(initialProjects);
+  const [confidents, setConfidents] =
+    React.useState<Confident[]>(initialConfidents);
+  const [tags, setTags] = React.useState<Tag[]>(initialTags);
+  const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [actionMessage, setActionMessage] = React.useState<{
     type: "success" | "error";
@@ -48,56 +104,6 @@ export default function Dashboard() {
   const [showProjectForm, setShowProjectForm] = React.useState(false);
   const [showConfidentForm, setShowConfidentForm] = React.useState(false);
   const [showTagForm, setShowTagForm] = React.useState(false);
-
-  // Load user and data on component mount
-  React.useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        console.log("Loading dashboard data...");
-
-        // Check authentication
-        const authResponse = await apiClient.get<{ user: any }>("/auth/me");
-        if (!authResponse.ok) {
-          console.log("Authentication failed, redirecting to login");
-          navigate("/login?from=/dashboard");
-          return;
-        }
-
-        console.log("User authenticated:", authResponse.data.user);
-        setUser(authResponse.data.user);
-
-        // Load all data in parallel
-        const [projectsResponse, confidentsResponse, tagsResponse] =
-          await Promise.all([
-            apiClient.get<Project[]>("/projects"),
-            apiClient.get<Confident[]>("/confidents"),
-            apiClient.get<Tag[]>("/tags"),
-          ]);
-
-        if (projectsResponse.ok) {
-          console.log("Projects loaded:", projectsResponse.data);
-          setProjects(projectsResponse.data);
-        }
-
-        if (confidentsResponse.ok) {
-          console.log("Confidents loaded:", confidentsResponse.data);
-          setConfidents(confidentsResponse.data);
-        }
-
-        if (tagsResponse.ok) {
-          console.log("Tags loaded:", tagsResponse.data);
-          setTags(tagsResponse.data);
-        }
-      } catch (error) {
-        console.error("Dashboard loading error:", error);
-        setError("Failed to load dashboard");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadDashboard();
-  }, [navigate]);
 
   const handleCreateProject = async (
     event: React.FormEvent<HTMLFormElement>

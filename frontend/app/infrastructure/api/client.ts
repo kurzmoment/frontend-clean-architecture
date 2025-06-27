@@ -1,4 +1,10 @@
-const API_BASE_URL = "http://localhost:5001/api";
+// Detect if we're running on the server or client
+const isServer = typeof window === "undefined";
+
+// Use different base URLs for server and client
+const API_BASE_URL = isServer
+  ? "http://localhost:5001/api" // Backend server URL for SSR
+  : "/api"; // Relative URL for client (uses Vite proxy)
 
 export interface ApiResponse<T = any> {
   data: T;
@@ -15,7 +21,8 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    request?: Request
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
 
@@ -27,6 +34,17 @@ class ApiClient {
       },
       ...options,
     };
+
+    // For server-side requests, include cookies from the original request
+    if (isServer && request) {
+      const cookieHeader = request.headers.get("Cookie");
+      if (cookieHeader) {
+        defaultOptions.headers = {
+          ...defaultOptions.headers,
+          Cookie: cookieHeader,
+        };
+      }
+    }
 
     console.log("Making request to:", url);
     console.log("Request options:", defaultOptions);
@@ -69,26 +87,45 @@ class ApiClient {
     }
   }
 
-  async get<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: "GET" });
+  async get<T>(endpoint: string, request?: Request): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { method: "GET" }, request);
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: "POST",
-      body: data ? JSON.stringify(data) : undefined,
-    });
+  async post<T>(
+    endpoint: string,
+    data?: any,
+    request?: Request
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(
+      endpoint,
+      {
+        method: "POST",
+        body: data ? JSON.stringify(data) : undefined,
+      },
+      request
+    );
   }
 
-  async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: "PUT",
-      body: data ? JSON.stringify(data) : undefined,
-    });
+  async put<T>(
+    endpoint: string,
+    data?: any,
+    request?: Request
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(
+      endpoint,
+      {
+        method: "PUT",
+        body: data ? JSON.stringify(data) : undefined,
+      },
+      request
+    );
   }
 
-  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: "DELETE" });
+  async delete<T>(
+    endpoint: string,
+    request?: Request
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { method: "DELETE" }, request);
   }
 }
 

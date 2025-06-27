@@ -16,7 +16,7 @@ export function meta() {
 export async function loader({ request }: LoaderFunctionArgs) {
   // Check if user is already authenticated
   try {
-    const response = await apiClient.get("/auth/me");
+    const response = await apiClient.get("/auth/me", request);
     if (response.ok) {
       return redirect("/dashboard");
     }
@@ -45,7 +45,8 @@ export async function action({ request }: ActionFunctionArgs) {
   try {
     const response = await apiClient.post<{ message: string }>(
       "/auth/register",
-      { username, email, password }
+      { username, email, password },
+      request
     );
     if (response.ok) {
       return redirect("/dashboard");

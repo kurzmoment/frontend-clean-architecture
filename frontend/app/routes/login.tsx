@@ -27,7 +27,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const cookieHeader = request.headers.get("Cookie");
   if (cookieHeader && cookieHeader.includes("authToken=")) {
     try {
-      const response = await apiClient.get<{ user: any }>("/auth/me");
+      const response = await apiClient.get<{ user: any }>("/auth/me", request);
       if (response.ok) {
         return redirect(from);
       }

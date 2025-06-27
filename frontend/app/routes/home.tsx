@@ -1,5 +1,5 @@
-import React, { useEffect } from "react";
-import { useNavigate } from "react-router";
+import React from "react";
+import { redirect } from "react-router";
 
 export function meta() {
   return [
@@ -8,13 +8,11 @@ export function meta() {
   ];
 }
 
+export async function loader() {
+  return redirect("/login");
+}
+
 export default function Home() {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    navigate("/login");
-  }, [navigate]);
-
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-lg">Redirecting...</div>
