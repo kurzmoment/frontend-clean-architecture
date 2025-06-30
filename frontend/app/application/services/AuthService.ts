@@ -1,11 +1,11 @@
-import { AuthRepository } from "../../infrastructure/repositories/AuthRepository";
-import {
+import type { AuthRepository } from "../../infrastructure/repositories/AuthRepository";
+import type {
   UserCredentials,
   UserRegistration,
   AuthResponse,
   User,
-  UserEntity,
 } from "../../domain/entities/User";
+import { UserEntity } from "../../domain/entities/User";
 
 // Cookie utility functions
 const setCookie = (name: string, value: string, days: number = 7) => {

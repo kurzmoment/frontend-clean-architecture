@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router";
-import { apiClient } from "../../infrastructure/api/client";
+import { useAuthService } from "../../infrastructure/di/ServiceProvider";
 
 interface LoginPageProps {
   from?: string;
@@ -8,6 +8,7 @@ interface LoginPageProps {
 
 export default function LoginPage({ from = "/dashboard" }: LoginPageProps) {
   const navigate = useNavigate();
+  const authService = useAuthService();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState(false);
@@ -36,30 +37,19 @@ export default function LoginPage({ from = "/dashboard" }: LoginPageProps) {
     }
 
     try {
-      console.log("Making login request to backend...");
-      const response = await apiClient.post<{
-        message: string;
-        token: string;
-        user: any;
-      }>("/auth/login", { email, password });
+      console.log("Making login request through AuthService...");
+      const result = await authService.login({ email, password });
 
-      console.log("Login response:", response);
+      console.log("Login response:", result);
 
-      if (response.ok) {
-        console.log("Login successful, redirecting...");
-        setSuccess(true);
+      console.log("Login successful, redirecting...");
+      setSuccess(true);
 
-        // Wait a moment for cookies to be set, then redirect
-        setTimeout(() => {
-          console.log("Redirecting to:", from);
-          navigate(from);
-        }, 500);
-      } else {
-        console.log("Login failed:", response.data);
-        setError(
-          (response.data as { message: string }).message || "Login failed"
-        );
-      }
+      // Wait a moment for cookies to be set, then redirect
+      setTimeout(() => {
+        console.log("Redirecting to:", from);
+        navigate(from);
+      }, 500);
     } catch (error) {
       console.error("Login error:", error);
       setError("Login failed. Please check your credentials.");
@@ -71,18 +61,12 @@ export default function LoginPage({ from = "/dashboard" }: LoginPageProps) {
   const handleTestClick = async () => {
     console.log("Test button clicked");
     try {
-      const response = await apiClient.post("/auth/login", {
+      const result = await authService.login({
         email: "admin@admin.cz",
         password: "password123",
       });
-      console.log("Test login response:", response);
-      if (response.ok) {
-        alert("Test login successful! Check console for details.");
-      } else {
-        const errorMessage =
-          (response.data as { message?: string })?.message || "Unknown error";
-        alert("Test login failed: " + errorMessage);
-      }
+      console.log("Test login response:", result);
+      alert("Test login successful! Check console for details.");
     } catch (error) {
       console.error("Test login error:", error);
       alert("Test login error: " + error);

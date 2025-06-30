@@ -9,6 +9,7 @@ import {
 } from "react-router";
 
 import "./app.css";
+import { ServiceProvider } from "./infrastructure/di/ServiceProvider";
 
 export function meta() {
   return [
@@ -49,7 +50,9 @@ export default function App() {
         <Links />
       </head>
       <body className="bg-gray-50">
-        <Outlet />
+        <ServiceProvider>
+          <Outlet />
+        </ServiceProvider>
         <ScrollRestoration />
         <Scripts />
       </body>

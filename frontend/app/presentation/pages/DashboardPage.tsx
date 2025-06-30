@@ -1,6 +1,11 @@
 import React from "react";
 import { useNavigate } from "react-router";
-import { apiClient } from "../../infrastructure/api/client";
+import {
+  useProjectService,
+  useConfidentService,
+  useTagService,
+} from "../../infrastructure/di/ServiceProvider";
+import { useAuth } from "../hooks/useAuth";
 import type { Project } from "../../domain/entities/Project";
 import Header from "../components/Header";
 import TabNavigation from "../components/TabNavigation";
@@ -43,6 +48,11 @@ export default function DashboardPage({
   tags: initialTags,
 }: DashboardPageProps) {
   const navigate = useNavigate();
+  const { logout } = useAuth();
+  const projectService = useProjectService();
+  const confidentService = useConfidentService();
+  const tagService = useTagService();
+
   const [projects, setProjects] = React.useState<Project[]>(initialProjects);
   const [confidents, setConfidents] =
     React.useState<Confident[]>(initialConfidents);
@@ -73,32 +83,21 @@ export default function DashboardPage({
     }
 
     try {
-      const response = await apiClient.post<{
-        message: string;
-        project: Project;
-      }>("/projects", { name, description });
+      const result = await projectService.createProject({ name, description });
 
-      if (response.ok) {
-        setActionMessage({
-          type: "success",
-          message: "Project created successfully",
-        });
-        const projectsResponse = await apiClient.get<Project[]>("/projects");
-        if (projectsResponse.ok) {
-          setProjects(projectsResponse.data);
-        }
-        if (form) {
-          form.reset();
-        }
-        setShowProjectForm(false);
-      } else {
-        setActionMessage({
-          type: "error",
-          message:
-            (response.data as { message: string }).message ||
-            "Failed to create project",
-        });
+      setActionMessage({
+        type: "success",
+        message: "Project created successfully",
+      });
+
+      // Refresh projects list
+      const updatedProjects = await projectService.getAllProjects();
+      setProjects(updatedProjects);
+
+      if (form) {
+        form.reset();
       }
+      setShowProjectForm(false);
     } catch (error) {
       setActionMessage({ type: "error", message: "Failed to create project" });
     }
@@ -122,34 +121,24 @@ export default function DashboardPage({
     }
 
     try {
-      const response = await apiClient.post<{
-        message: string;
-        confident: Confident;
-      }>("/confidents", { name, description });
+      const result = await confidentService.createConfident({
+        name,
+        description,
+      });
 
-      if (response.ok) {
-        setActionMessage({
-          type: "success",
-          message: "Confident created successfully",
-        });
-        const confidentsResponse = await apiClient.get<Confident[]>(
-          "/confidents"
-        );
-        if (confidentsResponse.ok) {
-          setConfidents(confidentsResponse.data);
-        }
-        if (form) {
-          form.reset();
-        }
-        setShowConfidentForm(false);
-      } else {
-        setActionMessage({
-          type: "error",
-          message:
-            (response.data as { message: string }).message ||
-            "Failed to create confident",
-        });
+      setActionMessage({
+        type: "success",
+        message: "Confident created successfully",
+      });
+
+      // Refresh confidents list
+      const updatedConfidents = await confidentService.getAllConfidents();
+      setConfidents(updatedConfidents);
+
+      if (form) {
+        form.reset();
       }
+      setShowConfidentForm(false);
     } catch (error) {
       setActionMessage({
         type: "error",
@@ -171,32 +160,21 @@ export default function DashboardPage({
     }
 
     try {
-      const response = await apiClient.post<{
-        message: string;
-        tag: Tag;
-      }>("/tags", { name, color });
+      const result = await tagService.createTag({ name, color });
 
-      if (response.ok) {
-        setActionMessage({
-          type: "success",
-          message: "Tag created successfully",
-        });
-        const tagsResponse = await apiClient.get<Tag[]>("/tags");
-        if (tagsResponse.ok) {
-          setTags(tagsResponse.data);
-        }
-        if (form) {
-          form.reset();
-        }
-        setShowTagForm(false);
-      } else {
-        setActionMessage({
-          type: "error",
-          message:
-            (response.data as { message: string }).message ||
-            "Failed to create tag",
-        });
+      setActionMessage({
+        type: "success",
+        message: "Tag created successfully",
+      });
+
+      // Refresh tags list
+      const updatedTags = await tagService.getAllTags();
+      setTags(updatedTags);
+
+      if (form) {
+        form.reset();
       }
+      setShowTagForm(false);
     } catch (error) {
       setActionMessage({ type: "error", message: "Failed to create tag" });
     }
@@ -207,24 +185,15 @@ export default function DashboardPage({
     confidentId: number
   ) => {
     try {
-      const response = await apiClient.post(
-        `/projects/${projectId}/confidents/${confidentId}`
-      );
-      if (response.ok) {
-        setActionMessage({
-          type: "success",
-          message: "Confident assigned to project successfully",
-        });
-        const projectsResponse = await apiClient.get<Project[]>("/projects");
-        if (projectsResponse.ok) {
-          setProjects(projectsResponse.data);
-        }
-      } else {
-        setActionMessage({
-          type: "error",
-          message: "Failed to assign confident to project",
-        });
-      }
+      await projectService.addConfidentToProject(projectId, confidentId);
+      setActionMessage({
+        type: "success",
+        message: "Confident assigned to project successfully",
+      });
+
+      // Refresh projects list
+      const updatedProjects = await projectService.getAllProjects();
+      setProjects(updatedProjects);
     } catch (error) {
       setActionMessage({
         type: "error",
@@ -235,24 +204,15 @@ export default function DashboardPage({
 
   const handleAssignTagToProject = async (projectId: number, tagId: number) => {
     try {
-      const response = await apiClient.post(
-        `/projects/${projectId}/tags/${tagId}`
-      );
-      if (response.ok) {
-        setActionMessage({
-          type: "success",
-          message: "Tag assigned to project successfully",
-        });
-        const projectsResponse = await apiClient.get<Project[]>("/projects");
-        if (projectsResponse.ok) {
-          setProjects(projectsResponse.data);
-        }
-      } else {
-        setActionMessage({
-          type: "error",
-          message: "Failed to assign tag to project",
-        });
-      }
+      await projectService.addTagToProject(projectId, tagId);
+      setActionMessage({
+        type: "success",
+        message: "Tag assigned to project successfully",
+      });
+
+      // Refresh projects list
+      const updatedProjects = await projectService.getAllProjects();
+      setProjects(updatedProjects);
     } catch (error) {
       setActionMessage({
         type: "error",
@@ -265,22 +225,15 @@ export default function DashboardPage({
     if (!confirm("Are you sure you want to delete this project?")) return;
 
     try {
-      const response = await apiClient.delete(`/projects/${projectId}`);
-      if (response.ok) {
-        setActionMessage({
-          type: "success",
-          message: "Project deleted successfully",
-        });
-        const projectsResponse = await apiClient.get<Project[]>("/projects");
-        if (projectsResponse.ok) {
-          setProjects(projectsResponse.data);
-        }
-      } else {
-        setActionMessage({
-          type: "error",
-          message: "Failed to delete project",
-        });
-      }
+      await projectService.deleteProject(parseInt(projectId));
+      setActionMessage({
+        type: "success",
+        message: "Project deleted successfully",
+      });
+
+      // Refresh projects list
+      const updatedProjects = await projectService.getAllProjects();
+      setProjects(updatedProjects);
     } catch (error) {
       setActionMessage({ type: "error", message: "Failed to delete project" });
     }
@@ -290,24 +243,15 @@ export default function DashboardPage({
     if (!confirm("Are you sure you want to delete this confident?")) return;
 
     try {
-      const response = await apiClient.delete(`/confidents/${confidentId}`);
-      if (response.ok) {
-        setActionMessage({
-          type: "success",
-          message: "Confident deleted successfully",
-        });
-        const confidentsResponse = await apiClient.get<Confident[]>(
-          "/confidents"
-        );
-        if (confidentsResponse.ok) {
-          setConfidents(confidentsResponse.data);
-        }
-      } else {
-        setActionMessage({
-          type: "error",
-          message: "Failed to delete confident",
-        });
-      }
+      await confidentService.deleteConfident(parseInt(confidentId));
+      setActionMessage({
+        type: "success",
+        message: "Confident deleted successfully",
+      });
+
+      // Refresh confidents list
+      const updatedConfidents = await confidentService.getAllConfidents();
+      setConfidents(updatedConfidents);
     } catch (error) {
       setActionMessage({
         type: "error",
@@ -320,34 +264,22 @@ export default function DashboardPage({
     if (!confirm("Are you sure you want to delete this tag?")) return;
 
     try {
-      const response = await apiClient.delete(`/tags/${tagId}`);
-      if (response.ok) {
-        setActionMessage({
-          type: "success",
-          message: "Tag deleted successfully",
-        });
-        const tagsResponse = await apiClient.get<Tag[]>("/tags");
-        if (tagsResponse.ok) {
-          setTags(tagsResponse.data);
-        }
-      } else {
-        setActionMessage({
-          type: "error",
-          message: "Failed to delete tag",
-        });
-      }
+      await tagService.deleteTag(parseInt(tagId));
+      setActionMessage({
+        type: "success",
+        message: "Tag deleted successfully",
+      });
+
+      // Refresh tags list
+      const updatedTags = await tagService.getAllTags();
+      setTags(updatedTags);
     } catch (error) {
       setActionMessage({ type: "error", message: "Failed to delete tag" });
     }
   };
 
   const handleLogout = async () => {
-    try {
-      await apiClient.post("/auth/logout");
-      navigate("/login");
-    } catch (error) {
-      navigate("/login");
-    }
+    await logout();
   };
 
   if (loading) {

@@ -1,5 +1,5 @@
-import { Confident } from "./Confident";
-import { Tag } from "./Tag";
+import type { Confident } from "./Confident";
+import type { Tag } from "./Tag";
 
 export interface Project {
   id: number;

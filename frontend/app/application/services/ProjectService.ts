@@ -1,10 +1,10 @@
-import { ProjectRepository } from "../../infrastructure/repositories/ProjectRepository";
-import {
+import type { ProjectRepository } from "../../infrastructure/repositories/ProjectRepository";
+import type {
   Project,
   CreateProjectRequest,
   UpdateProjectRequest,
-  ProjectEntity,
 } from "../../domain/entities/Project";
+import { ProjectEntity } from "../../domain/entities/Project";
 
 export class ProjectService {
   constructor(private projectRepository: ProjectRepository) {}

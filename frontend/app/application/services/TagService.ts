@@ -1,10 +1,10 @@
-import { TagRepository } from "../../infrastructure/repositories/TagRepository";
-import {
+import type { TagRepository } from "../../infrastructure/repositories/TagRepository";
+import type {
   Tag,
   CreateTagRequest,
   UpdateTagRequest,
-  TagEntity,
 } from "../../domain/entities/Tag";
+import { TagEntity } from "../../domain/entities/Tag";
 
 export class TagService {
   constructor(private tagRepository: TagRepository) {}

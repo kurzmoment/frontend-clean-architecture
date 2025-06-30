@@ -1,10 +1,10 @@
-import { ConfidentRepository } from "../../infrastructure/repositories/ConfidentRepository";
-import {
+import type { ConfidentRepository } from "../../infrastructure/repositories/ConfidentRepository";
+import type {
   Confident,
   CreateConfidentRequest,
   UpdateConfidentRequest,
-  ConfidentEntity,
 } from "../../domain/entities/Confident";
+import { ConfidentEntity } from "../../domain/entities/Confident";
 
 export class ConfidentService {
   constructor(private confidentRepository: ConfidentRepository) {}
