@@ -16,7 +16,11 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:3000"], // Frontend dev server and SSR server
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "http://localhost:5000",
+    ], // Frontend dev server and SSR server
     credentials: true, // Allow cookies
   })
 );

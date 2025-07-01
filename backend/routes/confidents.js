@@ -43,41 +43,74 @@ router.get("/:id", authenticateToken, (req, res) => {
 // Create confident
 router.post("/", authenticateToken, (req, res) => {
   const userId = req.user.id;
-  const { name, description } = req.body;
+  const { name, email, phone, company, position, notes } = req.body;
 
   if (!name) {
     return res.status(400).json({ message: "Confident name is required" });
   }
 
-  db.run(
-    "INSERT INTO confidents (name, description, user_id) VALUES (?, ?, ?)",
-    [name, description, userId],
-    function (err) {
-      if (err) {
-        return res.status(500).json({ message: "Error creating confident" });
+  // Check if email already exists for this user
+  if (email) {
+    db.get(
+      "SELECT id FROM confidents WHERE email = ? AND user_id = ?",
+      [email, userId],
+      (err, row) => {
+        if (err) {
+          return res.status(500).json({ message: "Database error" });
+        }
+        if (row) {
+          return res
+            .status(409)
+            .json({ message: "Email already exists for another confident." });
+        }
+        // Proceed to insert if email is unique
+        insertConfident();
       }
+    );
+  } else {
+    insertConfident();
+  }
 
-      res.status(201).json({
-        message: "Confident created successfully",
-        confident: { id: this.lastID, name, description, user_id: userId },
-      });
-    }
-  );
+  function insertConfident() {
+    db.run(
+      `INSERT INTO confidents (name, email, phone, company, position, notes, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [name, email, phone, company, position, notes, userId],
+      function (err) {
+        if (err) {
+          return res.status(500).json({ message: "Error creating confident" });
+        }
+
+        res.status(201).json({
+          message: "Confident created successfully",
+          confident: {
+            id: this.lastID,
+            name,
+            email,
+            phone,
+            company,
+            position,
+            notes,
+            user_id: userId,
+          },
+        });
+      }
+    );
+  }
 });
 
 // Update confident
 router.put("/:id", authenticateToken, (req, res) => {
   const userId = req.user.id;
   const confidentId = req.params.id;
-  const { name, description } = req.body;
+  const { name, email, phone, company, position, notes } = req.body;
 
   if (!name) {
     return res.status(400).json({ message: "Confident name is required" });
   }
 
   db.run(
-    "UPDATE confidents SET name = ?, description = ? WHERE id = ? AND user_id = ?",
-    [name, description, confidentId, userId],
+    `UPDATE confidents SET name = ?, email = ?, phone = ?, company = ?, position = ?, notes = ? WHERE id = ? AND user_id = ?`,
+    [name, email, phone, company, position, notes, confidentId, userId],
     function (err) {
       if (err) {
         return res.status(500).json({ message: "Database error" });
