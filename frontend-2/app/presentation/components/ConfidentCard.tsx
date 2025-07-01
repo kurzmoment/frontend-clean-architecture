@@ -6,19 +6,21 @@ import {
   CardContent,
 } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
-import { Pencil, Trash } from "lucide-react";
+import { Pencil, Trash, Eye } from "lucide-react";
 import type { Confident } from "../../shared-kernel";
 
 interface ConfidentCardProps {
   confident: Confident;
   onEdit: (confident: Confident) => void;
   onDelete: (id: number) => void;
+  onView?: (confident: Confident) => void;
 }
 
 const ConfidentCard: React.FC<ConfidentCardProps> = ({
   confident,
   onEdit,
   onDelete,
+  onView,
 }) => (
   <Card className="bg-card border rounded-xl shadow-lg p-5 transition-all duration-200 hover:shadow-xl flex flex-col gap-2 min-h-[180px]">
     <CardHeader>
@@ -37,6 +39,11 @@ const ConfidentCard: React.FC<ConfidentCardProps> = ({
         <p className="text-xs text-primary mt-1">{confident.email}</p>
       )}
       <div className="flex justify-end mt-2 gap-2">
+        {onView && (
+          <Button variant="ghost" size="icon" onClick={() => onView(confident)}>
+            <Eye className="size-4" />
+          </Button>
+        )}
         <Button variant="ghost" size="icon" onClick={() => onEdit(confident)}>
           <Pencil className="size-4" />
         </Button>

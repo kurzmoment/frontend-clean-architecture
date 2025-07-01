@@ -1,14 +1,12 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Link,
   useLoaderData,
   useNavigate,
   type LoaderFunctionArgs,
+  redirect,
 } from "react-router";
 import { useAuthenticate } from "../presentation/hooks/use-authenticate";
-import { useProjects } from "../presentation/hooks/use-projects";
-import { useConfidents } from "../presentation/hooks/use-confidents";
-import { useTags } from "../presentation/hooks/use-tags";
 import { useUserStorage } from "../presentation/hooks/use-user-storage";
 import { useNotifier } from "../presentation/hooks/use-notifier";
 import ProjectForm from "../presentation/components/ProjectForm";
@@ -31,7 +29,6 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { AnimatePresence, motion } from "motion/react";
 import { Pencil, Trash } from "lucide-react";
-import { apiClient } from "../infrastructure/api/api-client";
 import type {
   CreateProjectRequest,
   UpdateProjectRequest,
@@ -43,36 +40,74 @@ import type {
 import ProjectCard from "../presentation/components/ProjectCard";
 import ConfidentCard from "../presentation/components/ConfidentCard";
 import TagCard from "../presentation/components/TagCard";
+import {
+  getServerUser,
+  isServerAuthenticated,
+} from "../infrastructure/auth/server-auth";
+import { serverQueryFunctions } from "../infrastructure/query/queries";
+import {
+  useProjects,
+  useConfidents,
+  useTags,
+} from "../infrastructure/query/queries";
+import {
+  useCreateProject,
+  useUpdateProject,
+  useDeleteProject,
+  useCreateConfident,
+  useUpdateConfident,
+  useDeleteConfident,
+  useCreateTag,
+  useUpdateTag,
+  useDeleteTag,
+} from "../infrastructure/query/mutations";
 
-// export async function loader({ request }: LoaderFunctionArgs) {
-//   const [projects, confidents, tags] = await Promise.all([
-//     apiClient.get<Project[]>("/projects", request),
-//     apiClient.get<Confident[]>("/confidents", request),
-//     apiClient.get<Tag[]>("/tags", request),
-//   ]);
+export async function loader({ request }: LoaderFunctionArgs) {
+  // Check authentication on server
+  if (!isServerAuthenticated(request)) {
+    throw redirect("/login");
+  }
 
-//   return {
-//     projects: projects.data,
-//     confidents: confidents.data,
-//     tags: tags.data,
-//   };
-// }
+  const user = getServerUser(request);
+  if (!user) {
+    throw redirect("/login");
+  }
+
+  // Pre-fetch data for SSR
+  try {
+    const [projects, confidents, tags] = await Promise.all([
+      serverQueryFunctions.projects(request),
+      serverQueryFunctions.confidents(request),
+      serverQueryFunctions.tags(request),
+    ]);
+
+    return {
+      projects,
+      confidents,
+      tags,
+      user,
+    };
+  } catch (error) {
+    console.error("Failed to load data in loader:", error);
+    throw new Response("Failed to load data", { status: 500 });
+  }
+}
 
 export default function DashboardPage() {
-  // const loaderData = useLoaderData<typeof loader>();
-  // console.log("loaderData", loaderData);
+  const loaderData = useLoaderData<typeof loader>();
+  const {
+    projects: initialProjects,
+    confidents: initialConfidents,
+    tags: initialTags,
+    user: serverUser,
+  } = loaderData;
 
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [confidents, setConfidents] = useState<Confident[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
     "projects" | "confidents" | "tags"
   >("projects");
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [showConfidentForm, setShowConfidentForm] = useState(false);
   const [showTagForm, setShowTagForm] = useState(false);
-  const [isClient, setIsClient] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editingConfident, setEditingConfident] = useState<Confident | null>(
     null
@@ -80,76 +115,34 @@ export default function DashboardPage() {
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
 
   const { logout } = useAuthenticate();
-  const {
-    create: createProject,
-    update: updateProject,
-    delete: deleteProject,
-  } = useProjects();
-  const {
-    create: createConfident,
-    update: updateConfident,
-    delete: deleteConfident,
-  } = useConfidents();
-  const { create: createTag, update: updateTag, delete: deleteTag } = useTags();
   const userStorage = useUserStorage();
   const navigate = useNavigate();
   const notifier = useNotifier();
 
-  // Memoize the user to prevent unnecessary re-renders
-  const user = useMemo(() => userStorage.getUser(), [userStorage]);
+  // TanStack Query hooks
+  const { data: projects = initialProjects, isLoading: projectsLoading } =
+    useProjects();
+  const { data: confidents = initialConfidents, isLoading: confidentsLoading } =
+    useConfidents();
+  const { data: tags = initialTags, isLoading: tagsLoading } = useTags();
 
-  useEffect(() => {
-    // Set isClient to true after component mounts (client-side only)
-    setIsClient(true);
-  }, []);
+  // Mutation hooks
+  const createProjectMutation = useCreateProject();
+  const updateProjectMutation = useUpdateProject();
+  const deleteProjectMutation = useDeleteProject();
+  const createConfidentMutation = useCreateConfident();
+  const updateConfidentMutation = useUpdateConfident();
+  const deleteConfidentMutation = useDeleteConfident();
+  const createTagMutation = useCreateTag();
+  const updateTagMutation = useUpdateTag();
+  const deleteTagMutation = useDeleteTag();
 
-  useEffect(() => {
-    // Only redirect to login on the client side and if user is not authenticated
-    if (isClient && !user) {
-      navigate("/login");
-      return;
-    }
+  // Use server user or fallback to client user
+  const user = useMemo(() => {
+    return serverUser || userStorage.getUser();
+  }, [serverUser, userStorage]);
 
-    if (!user) {
-      return; // Don't load data if no user (will redirect on client)
-    }
-
-    const loadData = async () => {
-      try {
-        // Use fetch to call the resource routes
-        const [projectsResponse, confidentsResponse, tagsResponse] =
-          await Promise.all([
-            fetch("/api/projects"),
-            fetch("/api/confidents"),
-            fetch("/api/tags"),
-          ]);
-
-        if (
-          !projectsResponse.ok ||
-          !confidentsResponse.ok ||
-          !tagsResponse.ok
-        ) {
-          throw new Error("Failed to load data");
-        }
-
-        const [projectsData, confidentsData, tagsData] = await Promise.all([
-          projectsResponse.json(),
-          confidentsResponse.json(),
-          tagsResponse.json(),
-        ]);
-
-        setProjects(projectsData);
-        setConfidents(confidentsData);
-        setTags(tagsData);
-      } catch (error) {
-        console.error("Failed to load data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [user, isClient]); // Only depend on user and isClient
+  const isLoading = projectsLoading || confidentsLoading || tagsLoading;
 
   const handleLogout = async () => {
     await logout();
@@ -162,10 +155,13 @@ export default function DashboardPage() {
   ) => {
     try {
       if (id) {
-        // Update project basic info first
-        await updateProject(id, {
-          name: data.name!,
-          description: data.description,
+        // Update project using TanStack Query mutation
+        await updateProjectMutation.mutateAsync({
+          id,
+          data: {
+            name: data.name!,
+            description: data.description,
+          },
         });
 
         // Get current project to see existing relationships
@@ -252,58 +248,14 @@ export default function DashboardPage() {
           }
         }
 
-        // Refresh projects list
-        const projectsResponse = await fetch("/api/projects");
-        if (projectsResponse.ok) {
-          const updatedProjects = await projectsResponse.json();
-          setProjects(updatedProjects);
-        }
-
         notifier.success("Project updated successfully!");
         setEditingProject(null);
       } else {
-        // Create project using the hook
-        const newProject = await createProject({
+        // Create project using TanStack Query mutation
+        await createProjectMutation.mutateAsync({
           name: data.name!,
           description: data.description,
         });
-
-        // Add confidents to the new project
-        for (const confidentId of data.confident_ids || []) {
-          try {
-            await fetch(`/api/projects/${newProject.id}/confidents`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ confident_id: confidentId }),
-            });
-          } catch (error) {
-            console.error(`Failed to add confident ${confidentId}:`, error);
-          }
-        }
-
-        // Add tags to the new project
-        for (const tagId of data.tag_ids || []) {
-          try {
-            await fetch(`/api/projects/${newProject.id}/tags`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ tag_id: tagId }),
-            });
-          } catch (error) {
-            console.error(`Failed to add tag ${tagId}:`, error);
-          }
-        }
-
-        // Refresh projects list
-        const projectsResponse = await fetch("/api/projects");
-        if (projectsResponse.ok) {
-          const updatedProjects = await projectsResponse.json();
-          setProjects(updatedProjects);
-        }
 
         notifier.success("Project created successfully!");
       }
@@ -320,28 +272,19 @@ export default function DashboardPage() {
   ) => {
     try {
       if (id) {
-        // Update confident using the hook
-        await updateConfident(id, data as UpdateConfidentRequest);
-
-        // Refresh confidents list
-        const confidentsResponse = await fetch("/api/confidents");
-        if (confidentsResponse.ok) {
-          const updatedConfidents = await confidentsResponse.json();
-          setConfidents(updatedConfidents);
-        }
+        // Update confident using TanStack Query mutation
+        await updateConfidentMutation.mutateAsync({
+          id,
+          data: data as UpdateConfidentRequest,
+        });
 
         notifier.success("Confident updated successfully!");
         setEditingConfident(null);
       } else {
-        // Create confident using the hook
-        await createConfident(data as CreateConfidentRequest);
-
-        // Refresh confidents list
-        const confidentsResponse = await fetch("/api/confidents");
-        if (confidentsResponse.ok) {
-          const updatedConfidents = await confidentsResponse.json();
-          setConfidents(updatedConfidents);
-        }
+        // Create confident using TanStack Query mutation
+        await createConfidentMutation.mutateAsync(
+          data as CreateConfidentRequest
+        );
 
         notifier.success("Confident created successfully!");
       }
@@ -358,28 +301,17 @@ export default function DashboardPage() {
   ) => {
     try {
       if (id) {
-        // Update tag using the hook
-        await updateTag(id, data as UpdateTagRequest);
-
-        // Refresh tags list
-        const tagsResponse = await fetch("/api/tags");
-        if (tagsResponse.ok) {
-          const updatedTags = await tagsResponse.json();
-          setTags(updatedTags);
-        }
+        // Update tag using TanStack Query mutation
+        await updateTagMutation.mutateAsync({
+          id,
+          data: data as UpdateTagRequest,
+        });
 
         notifier.success("Tag updated successfully!");
         setEditingTag(null);
       } else {
-        // Create tag using the hook
-        await createTag(data as CreateTagRequest);
-
-        // Refresh tags list
-        const tagsResponse = await fetch("/api/tags");
-        if (tagsResponse.ok) {
-          const updatedTags = await tagsResponse.json();
-          setTags(updatedTags);
-        }
+        // Create tag using TanStack Query mutation
+        await createTagMutation.mutateAsync(data as CreateTagRequest);
 
         notifier.success("Tag created successfully!");
       }
@@ -392,10 +324,7 @@ export default function DashboardPage() {
 
   const handleDeleteProject = async (id: number) => {
     try {
-      await deleteProject(id);
-
-      // Remove from local state immediately for better UX
-      setProjects((prev) => prev.filter((p) => p.id !== id));
+      await deleteProjectMutation.mutateAsync(id);
       notifier.success("Project deleted successfully!");
     } catch (error) {
       console.error("Failed to delete project:", error);
@@ -405,10 +334,7 @@ export default function DashboardPage() {
 
   const handleDeleteConfident = async (id: number) => {
     try {
-      await deleteConfident(id);
-
-      // Remove from local state immediately for better UX
-      setConfidents((prev) => prev.filter((c) => c.id !== id));
+      await deleteConfidentMutation.mutateAsync(id);
       notifier.success("Confident deleted successfully!");
     } catch (error) {
       console.error("Failed to delete confident:", error);
@@ -418,10 +344,7 @@ export default function DashboardPage() {
 
   const handleDeleteTag = async (id: number) => {
     try {
-      await deleteTag(id);
-
-      // Remove from local state immediately for better UX
-      setTags((prev) => prev.filter((t) => t.id !== id));
+      await deleteTagMutation.mutateAsync(id);
       notifier.success("Tag deleted successfully!");
     } catch (error) {
       console.error("Failed to delete tag:", error);
@@ -429,8 +352,8 @@ export default function DashboardPage() {
     }
   };
 
-  // Show loading state during SSR or while checking authentication
-  if (!isClient || loading) {
+  // Show loading state while data is being fetched
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -439,11 +362,6 @@ export default function DashboardPage() {
         </div>
       </div>
     );
-  }
-
-  // Don't render anything if user is not authenticated (will redirect)
-  if (!user) {
-    return null;
   }
 
   return (
@@ -487,9 +405,17 @@ export default function DashboardPage() {
               <Card className="mb-6">
                 <CardHeader className="flex flex-row justify-between items-center">
                   <CardTitle>Projects</CardTitle>
-                  <Button onClick={() => setShowProjectForm(true)}>
-                    Add Project
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate("/projects")}
+                    >
+                      View All
+                    </Button>
+                    <Button onClick={() => setShowProjectForm(true)}>
+                      Add Project
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <AnimatePresence>
@@ -543,6 +469,7 @@ export default function DashboardPage() {
                                 setShowProjectForm(true);
                               }}
                               onDelete={handleDeleteProject}
+                              onView={(p) => navigate(`/projects/${p.id}`)}
                             />
                           </motion.div>
                         ))}
@@ -562,9 +489,17 @@ export default function DashboardPage() {
               <Card className="mb-6">
                 <CardHeader className="flex flex-row justify-between items-center">
                   <CardTitle>Confidents</CardTitle>
-                  <Button onClick={() => setShowConfidentForm(true)}>
-                    Add Confident
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate("/confidents")}
+                    >
+                      View All
+                    </Button>
+                    <Button onClick={() => setShowConfidentForm(true)}>
+                      Add Confident
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <AnimatePresence>
@@ -616,6 +551,7 @@ export default function DashboardPage() {
                                 setShowConfidentForm(true);
                               }}
                               onDelete={handleDeleteConfident}
+                              onView={(c) => navigate(`/confidents/${c.id}`)}
                             />
                           </motion.div>
                         ))}
@@ -635,7 +571,14 @@ export default function DashboardPage() {
               <Card className="mb-6">
                 <CardHeader className="flex flex-row justify-between items-center">
                   <CardTitle>Tags</CardTitle>
-                  <Button onClick={() => setShowTagForm(true)}>Add Tag</Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={() => navigate("/tags")}>
+                      View All
+                    </Button>
+                    <Button onClick={() => setShowTagForm(true)}>
+                      Add Tag
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <AnimatePresence>
@@ -686,6 +629,7 @@ export default function DashboardPage() {
                                 setShowTagForm(true);
                               }}
                               onDelete={handleDeleteTag}
+                              onView={(t) => navigate(`/tags/${t.id}`)}
                             />
                           </motion.div>
                         ))}

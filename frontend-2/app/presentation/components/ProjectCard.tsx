@@ -7,19 +7,21 @@ import {
 } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
-import { Pencil, Trash } from "lucide-react";
+import { Pencil, Trash, Eye } from "lucide-react";
 import type { Project, Confident, Tag } from "../../shared-kernel";
 
 interface ProjectCardProps {
   project: Project;
   onEdit: (project: Project) => void;
   onDelete: (id: number) => void;
+  onView?: (project: Project) => void;
 }
 
 const ProjectCard: React.FC<ProjectCardProps> = ({
   project,
   onEdit,
   onDelete,
+  onView,
 }) => {
   const visibleConfidents = (project.confidents || [])
     .filter((c) => c && c.name)
@@ -95,6 +97,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
           </span>
         </div>
         <div className="flex justify-end mt-2 gap-2">
+          {onView && (
+            <Button variant="ghost" size="icon" onClick={() => onView(project)}>
+              <Eye className="size-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" onClick={() => onEdit(project)}>
             <Pencil className="size-4" />
           </Button>

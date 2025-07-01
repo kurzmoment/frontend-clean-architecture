@@ -13,6 +13,7 @@ import {
   useNotificationContext,
 } from "./presentation/context/NotificationContext";
 import { setNotificationHandler } from "./infrastructure/services/notification-service-impl";
+import { QueryProvider } from "./infrastructure/query/query-provider";
 
 import "./app.css";
 
@@ -51,10 +52,12 @@ export default function App() {
         <Links />
       </head>
       <body>
-        <NotificationProvider>
-          <NotificationConnector />
-          <Outlet />
-        </NotificationProvider>
+        <QueryProvider>
+          <NotificationProvider>
+            <NotificationConnector />
+            <Outlet />
+          </NotificationProvider>
+        </QueryProvider>
         <ScrollRestoration />
         <Scripts />
       </body>
