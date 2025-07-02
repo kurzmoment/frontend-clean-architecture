@@ -36,8 +36,10 @@ import {
 import {
   serverQueryFunctions,
   serverMutationFunctions,
+  queryKeys,
 } from "../infrastructure/query";
 import { useProjects, useConfidents, useTags } from "../infrastructure/query";
+import { useQueryClient } from "@tanstack/react-query";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   // Check authentication on server
@@ -113,6 +115,7 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function ProjectsPage() {
+  const queryClient = useQueryClient();
   const loaderData = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
@@ -136,12 +139,15 @@ export default function ProjectsPage() {
         // Close form on success
         setShowProjectForm(false);
         setEditingProject(null);
+        // Force revalidation of the page data
+        queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+        queryClient.refetchQueries({ queryKey: queryKeys.projects });
         revalidator.revalidate();
       } else {
         notifier.error(actionData.message);
       }
     }
-  }, [actionData, notifier]);
+  }, [actionData, notifier, revalidator]);
 
   // TanStack Query hooks
   const { data: projects = initialProjects, isLoading: projectsLoading } =
