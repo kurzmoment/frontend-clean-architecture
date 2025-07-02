@@ -8,6 +8,7 @@ import {
   type LoaderFunctionArgs,
   type ActionFunctionArgs,
   redirect,
+  useRevalidator,
 } from "react-router";
 import { useAuthenticate } from "../presentation/hooks/use-authenticate";
 import { useUserStorage } from "../presentation/hooks/use-user-storage";
@@ -35,12 +36,8 @@ import {
 import {
   serverQueryFunctions,
   serverMutationFunctions,
-} from "../infrastructure/query/queries";
-import {
-  useProjects,
-  useConfidents,
-  useTags,
-} from "../infrastructure/query/queries";
+} from "../infrastructure/query";
+import { useProjects, useConfidents, useTags } from "../infrastructure/query";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   // Check authentication on server
@@ -79,6 +76,7 @@ export async function action({ request }: ActionFunctionArgs) {
           formData,
           request
         );
+
         return { success: true, message: "Project created successfully" };
 
       case "update":
@@ -91,6 +89,7 @@ export async function action({ request }: ActionFunctionArgs) {
           updateId,
           request
         );
+
         return { success: true, message: "Project updated successfully" };
 
       case "delete":
@@ -117,6 +116,7 @@ export default function ProjectsPage() {
   const loaderData = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
+  const revalidator = useRevalidator();
   const { projects: initialProjects, user: serverUser } = loaderData;
 
   const [showProjectForm, setShowProjectForm] = useState(false);
@@ -136,6 +136,7 @@ export default function ProjectsPage() {
         // Close form on success
         setShowProjectForm(false);
         setEditingProject(null);
+        revalidator.revalidate();
       } else {
         notifier.error(actionData.message);
       }
@@ -185,6 +186,8 @@ export default function ProjectsPage() {
       </div>
     );
   }
+
+  console.log("projects", projects);
 
   return (
     <div className="min-h-screen bg-background">

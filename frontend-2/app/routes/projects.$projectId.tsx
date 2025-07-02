@@ -41,16 +41,9 @@ import {
   getServerUser,
   isServerAuthenticated,
 } from "../infrastructure/auth/server-auth";
-import { serverQueryFunctions } from "../infrastructure/query/queries";
-import {
-  useProjects,
-  useConfidents,
-  useTags,
-} from "../infrastructure/query/queries";
-import {
-  useUpdateProject,
-  useDeleteProject,
-} from "../infrastructure/query/mutations";
+import { serverQueryFunctions } from "../infrastructure/query";
+import { useProjects, useConfidents, useTags } from "../infrastructure/query";
+import { useUpdateProject, useDeleteProject } from "../infrastructure/query";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   // Check authentication on server
@@ -256,7 +249,6 @@ export default function ProjectDetailPage() {
               className="mb-6"
             >
               <ProjectForm
-                onSubmit={handleProjectForm}
                 onCancel={() => {
                   setShowProjectForm(false);
                   setEditingProject(null);

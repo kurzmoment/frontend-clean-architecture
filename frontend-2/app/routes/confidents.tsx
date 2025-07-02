@@ -35,8 +35,8 @@ import {
 import {
   serverQueryFunctions,
   serverMutationFunctions,
-} from "../infrastructure/query/queries";
-import { useConfidents } from "../infrastructure/query/queries";
+} from "../infrastructure/query";
+import { useConfidents } from "../infrastructure/query";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   // Check authentication on server

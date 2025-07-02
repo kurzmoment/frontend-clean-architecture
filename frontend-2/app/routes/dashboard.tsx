@@ -44,12 +44,8 @@ import {
   getServerUser,
   isServerAuthenticated,
 } from "../infrastructure/auth/server-auth";
-import { serverQueryFunctions } from "../infrastructure/query/queries";
-import {
-  useProjects,
-  useConfidents,
-  useTags,
-} from "../infrastructure/query/queries";
+import { serverQueryFunctions } from "../infrastructure/query";
+import { useProjects, useConfidents, useTags } from "../infrastructure/query";
 import {
   useCreateProject,
   useUpdateProject,
@@ -60,7 +56,7 @@ import {
   useCreateTag,
   useUpdateTag,
   useDeleteTag,
-} from "../infrastructure/query/mutations";
+} from "../infrastructure/query";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   // Check authentication on server

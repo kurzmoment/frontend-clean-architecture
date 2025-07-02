@@ -185,6 +185,8 @@ router.post("/:id/confidents", authenticateToken, (req, res) => {
   const projectId = req.params.id;
   const { confident_id } = req.body;
 
+  console.log("CONFIDENT ID:", confident_id);
+
   if (!confident_id) {
     return res.status(400).json({ message: "Confident ID is required" });
   }

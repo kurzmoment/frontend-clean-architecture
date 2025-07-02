@@ -42,12 +42,12 @@ import {
   getServerUser,
   isServerAuthenticated,
 } from "../infrastructure/auth/server-auth";
-import { serverQueryFunctions } from "../infrastructure/query/queries";
-import { useConfidents, useProjects } from "../infrastructure/query/queries";
+import { serverQueryFunctions } from "../infrastructure/query";
+import { useConfidents, useProjects } from "../infrastructure/query";
 import {
   useUpdateConfident,
   useDeleteConfident,
-} from "../infrastructure/query/mutations";
+} from "../infrastructure/query";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   // Check authentication on server
