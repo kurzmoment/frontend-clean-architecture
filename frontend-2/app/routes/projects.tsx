@@ -3,7 +3,10 @@ import {
   Link,
   useLoaderData,
   useNavigate,
+  useActionData,
+  useNavigation,
   type LoaderFunctionArgs,
+  type ActionFunctionArgs,
   redirect,
 } from "react-router";
 import { useAuthenticate } from "../presentation/hooks/use-authenticate";
@@ -29,17 +32,15 @@ import {
   getServerUser,
   isServerAuthenticated,
 } from "../infrastructure/auth/server-auth";
-import { serverQueryFunctions } from "../infrastructure/query/queries";
+import {
+  serverQueryFunctions,
+  serverMutationFunctions,
+} from "../infrastructure/query/queries";
 import {
   useProjects,
   useConfidents,
   useTags,
 } from "../infrastructure/query/queries";
-import {
-  useCreateProject,
-  useUpdateProject,
-  useDeleteProject,
-} from "../infrastructure/query/mutations";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   // Check authentication on server
@@ -62,8 +63,60 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 }
 
+export async function action({ request }: ActionFunctionArgs) {
+  // Check authentication on server
+  if (!isServerAuthenticated(request)) {
+    throw redirect("/login");
+  }
+
+  const formData = await request.formData();
+  const intent = formData.get("intent") as string;
+
+  try {
+    switch (intent) {
+      case "create":
+        await serverMutationFunctions.createProjectFromFormData(
+          formData,
+          request
+        );
+        return { success: true, message: "Project created successfully" };
+
+      case "update":
+        const updateId = parseInt(formData.get("id") as string);
+        if (isNaN(updateId)) {
+          throw new Error("Invalid project ID");
+        }
+        await serverMutationFunctions.updateProjectFromFormData(
+          formData,
+          updateId,
+          request
+        );
+        return { success: true, message: "Project updated successfully" };
+
+      case "delete":
+        const deleteId = parseInt(formData.get("id") as string);
+        if (isNaN(deleteId)) {
+          throw new Error("Invalid project ID");
+        }
+        await serverMutationFunctions.deleteProject(request, deleteId);
+        return { success: true, message: "Project deleted successfully" };
+
+      default:
+        throw new Error("Invalid action intent");
+    }
+  } catch (error) {
+    console.error("Action error:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "An error occurred",
+    };
+  }
+}
+
 export default function ProjectsPage() {
   const loaderData = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
   const { projects: initialProjects, user: serverUser } = loaderData;
 
   const [showProjectForm, setShowProjectForm] = useState(false);
@@ -75,6 +128,20 @@ export default function ProjectsPage() {
   const navigate = useNavigate();
   const notifier = useNotifier();
 
+  // Show action result if available
+  React.useEffect(() => {
+    if (actionData) {
+      if (actionData.success) {
+        notifier.success(actionData.message);
+        // Close form on success
+        setShowProjectForm(false);
+        setEditingProject(null);
+      } else {
+        notifier.error(actionData.message);
+      }
+    }
+  }, [actionData, notifier]);
+
   // TanStack Query hooks
   const { data: projects = initialProjects, isLoading: projectsLoading } =
     useProjects();
@@ -83,11 +150,6 @@ export default function ProjectsPage() {
   const { data: tags = [], isLoading: tagsLoading } = useTags();
 
   const isLoading = projectsLoading || confidentsLoading || tagsLoading;
-
-  // Mutation hooks
-  const createProjectMutation = useCreateProject();
-  const updateProjectMutation = useUpdateProject();
-  const deleteProjectMutation = useDeleteProject();
 
   // Use server user or fallback to client user
   const user = useMemo(() => {
@@ -107,45 +169,6 @@ export default function ProjectsPage() {
   const handleLogout = async () => {
     await logout();
     navigate("/login");
-  };
-
-  const handleProjectForm = async (
-    data: CreateProjectRequest | UpdateProjectRequest,
-    id?: number
-  ) => {
-    try {
-      if (id) {
-        await updateProjectMutation.mutateAsync({
-          id,
-          data: {
-            name: data.name!,
-            description: data.description,
-          },
-        });
-        notifier.success("Project updated successfully!");
-        setEditingProject(null);
-      } else {
-        await createProjectMutation.mutateAsync({
-          name: data.name!,
-          description: data.description,
-        });
-        notifier.success("Project created successfully!");
-      }
-      setShowProjectForm(false);
-    } catch (error) {
-      console.error("Project operation failed:", error);
-      notifier.error("Failed to save project");
-    }
-  };
-
-  const handleDeleteProject = async (id: number) => {
-    try {
-      await deleteProjectMutation.mutateAsync(id);
-      notifier.success("Project deleted successfully!");
-    } catch (error) {
-      console.error("Failed to delete project:", error);
-      notifier.error("Failed to delete project");
-    }
   };
 
   const handleViewProject = (project: Project) => {
@@ -217,7 +240,6 @@ export default function ProjectsPage() {
                   className="mb-6"
                 >
                   <ProjectForm
-                    onSubmit={handleProjectForm}
                     onCancel={() => {
                       setShowProjectForm(false);
                       setEditingProject(null);
@@ -272,7 +294,6 @@ export default function ProjectsPage() {
                           setEditingProject(p);
                           setShowProjectForm(true);
                         }}
-                        onDelete={handleDeleteProject}
                         onView={handleViewProject}
                       />
                     </motion.div>

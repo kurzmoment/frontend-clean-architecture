@@ -105,14 +105,6 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<
     "projects" | "confidents" | "tags"
   >("projects");
-  const [showProjectForm, setShowProjectForm] = useState(false);
-  const [showConfidentForm, setShowConfidentForm] = useState(false);
-  const [showTagForm, setShowTagForm] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [editingConfident, setEditingConfident] = useState<Confident | null>(
-    null
-  );
-  const [editingTag, setEditingTag] = useState<Tag | null>(null);
 
   const { logout } = useAuthenticate();
   const userStorage = useUserStorage();
@@ -126,17 +118,6 @@ export default function DashboardPage() {
     useConfidents();
   const { data: tags = initialTags, isLoading: tagsLoading } = useTags();
 
-  // Mutation hooks
-  const createProjectMutation = useCreateProject();
-  const updateProjectMutation = useUpdateProject();
-  const deleteProjectMutation = useDeleteProject();
-  const createConfidentMutation = useCreateConfident();
-  const updateConfidentMutation = useUpdateConfident();
-  const deleteConfidentMutation = useDeleteConfident();
-  const createTagMutation = useCreateTag();
-  const updateTagMutation = useUpdateTag();
-  const deleteTagMutation = useDeleteTag();
-
   // Use server user or fallback to client user
   const user = useMemo(() => {
     return serverUser || userStorage.getUser();
@@ -147,209 +128,6 @@ export default function DashboardPage() {
   const handleLogout = async () => {
     await logout();
     navigate("/login");
-  };
-
-  const handleProjectForm = async (
-    data: CreateProjectRequest | UpdateProjectRequest,
-    id?: number
-  ) => {
-    try {
-      if (id) {
-        // Update project using TanStack Query mutation
-        await updateProjectMutation.mutateAsync({
-          id,
-          data: {
-            name: data.name!,
-            description: data.description,
-          },
-        });
-
-        // Get current project to see existing relationships
-        const currentProject = projects.find((p) => p.id === id);
-        const currentConfidentIds =
-          currentProject?.confidents?.map((c) => c.id) || [];
-        const currentTagIds = currentProject?.tags?.map((t) => t.id) || [];
-
-        const newConfidentIds = data.confident_ids || [];
-        const newTagIds = data.tag_ids || [];
-
-        // Only update confidents if the selection has changed
-        if (
-          JSON.stringify(currentConfidentIds.sort()) !==
-          JSON.stringify(newConfidentIds.sort())
-        ) {
-          // Remove confidents that are no longer selected
-          for (const confidentId of currentConfidentIds) {
-            if (!newConfidentIds.includes(confidentId)) {
-              try {
-                await fetch(`/api/projects/${id}/confidents/${confidentId}`, {
-                  method: "DELETE",
-                });
-              } catch (error) {
-                console.error(
-                  `Failed to remove confident ${confidentId}:`,
-                  error
-                );
-              }
-            }
-          }
-
-          // Add new confidents
-          for (const confidentId of newConfidentIds) {
-            if (!currentConfidentIds.includes(confidentId)) {
-              try {
-                await fetch(`/api/projects/${id}/confidents`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({ confident_id: confidentId }),
-                });
-              } catch (error) {
-                console.error(`Failed to add confident ${confidentId}:`, error);
-              }
-            }
-          }
-        }
-
-        // Only update tags if the selection has changed
-        if (
-          JSON.stringify(currentTagIds.sort()) !==
-          JSON.stringify(newTagIds.sort())
-        ) {
-          // Remove tags that are no longer selected
-          for (const tagId of currentTagIds) {
-            if (!newTagIds.includes(tagId)) {
-              try {
-                await fetch(`/api/projects/${id}/tags/${tagId}`, {
-                  method: "DELETE",
-                });
-              } catch (error) {
-                console.error(`Failed to remove tag ${tagId}:`, error);
-              }
-            }
-          }
-
-          // Add new tags
-          for (const tagId of newTagIds) {
-            if (!currentTagIds.includes(tagId)) {
-              try {
-                await fetch(`/api/projects/${id}/tags`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({ tag_id: tagId }),
-                });
-              } catch (error) {
-                console.error(`Failed to add tag ${tagId}:`, error);
-              }
-            }
-          }
-        }
-
-        notifier.success("Project updated successfully!");
-        setEditingProject(null);
-      } else {
-        // Create project using TanStack Query mutation
-        await createProjectMutation.mutateAsync({
-          name: data.name!,
-          description: data.description,
-        });
-
-        notifier.success("Project created successfully!");
-      }
-      setShowProjectForm(false);
-    } catch (error) {
-      console.error("Project operation failed:", error);
-      notifier.error("Failed to save project");
-    }
-  };
-
-  const handleConfidentForm = async (
-    data: CreateConfidentRequest | UpdateConfidentRequest,
-    id?: number
-  ) => {
-    try {
-      if (id) {
-        // Update confident using TanStack Query mutation
-        await updateConfidentMutation.mutateAsync({
-          id,
-          data: data as UpdateConfidentRequest,
-        });
-
-        notifier.success("Confident updated successfully!");
-        setEditingConfident(null);
-      } else {
-        // Create confident using TanStack Query mutation
-        await createConfidentMutation.mutateAsync(
-          data as CreateConfidentRequest
-        );
-
-        notifier.success("Confident created successfully!");
-      }
-      setShowConfidentForm(false);
-    } catch (error) {
-      console.error("Confident operation failed:", error);
-      notifier.error("Failed to save confident");
-    }
-  };
-
-  const handleTagForm = async (
-    data: CreateTagRequest | UpdateTagRequest,
-    id?: number
-  ) => {
-    try {
-      if (id) {
-        // Update tag using TanStack Query mutation
-        await updateTagMutation.mutateAsync({
-          id,
-          data: data as UpdateTagRequest,
-        });
-
-        notifier.success("Tag updated successfully!");
-        setEditingTag(null);
-      } else {
-        // Create tag using TanStack Query mutation
-        await createTagMutation.mutateAsync(data as CreateTagRequest);
-
-        notifier.success("Tag created successfully!");
-      }
-      setShowTagForm(false);
-    } catch (error) {
-      console.error("Tag operation failed:", error);
-      notifier.error("Failed to save tag");
-    }
-  };
-
-  const handleDeleteProject = async (id: number) => {
-    try {
-      await deleteProjectMutation.mutateAsync(id);
-      notifier.success("Project deleted successfully!");
-    } catch (error) {
-      console.error("Failed to delete project:", error);
-      notifier.error("Failed to delete project");
-    }
-  };
-
-  const handleDeleteConfident = async (id: number) => {
-    try {
-      await deleteConfidentMutation.mutateAsync(id);
-      notifier.success("Confident deleted successfully!");
-    } catch (error) {
-      console.error("Failed to delete confident:", error);
-      notifier.error("Failed to delete confident");
-    }
-  };
-
-  const handleDeleteTag = async (id: number) => {
-    try {
-      await deleteTagMutation.mutateAsync(id);
-      notifier.success("Tag deleted successfully!");
-    } catch (error) {
-      console.error("Failed to delete tag:", error);
-      notifier.error("Failed to delete tag");
-    }
   };
 
   // Show loading state while data is being fetched
@@ -412,32 +190,9 @@ export default function DashboardPage() {
                     >
                       View All
                     </Button>
-                    <Button onClick={() => setShowProjectForm(true)}>
-                      Add Project
-                    </Button>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <AnimatePresence>
-                    {showProjectForm && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                      >
-                        <ProjectForm
-                          onSubmit={handleProjectForm}
-                          onCancel={() => {
-                            setShowProjectForm(false);
-                            setEditingProject(null);
-                          }}
-                          confidents={confidents}
-                          tags={tags}
-                          initialValue={editingProject || undefined}
-                        />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                   {projects.length === 0 ? (
                     <p className="text-muted-foreground">
                       No projects found. Create your first project to get
@@ -464,11 +219,6 @@ export default function DashboardPage() {
                           >
                             <ProjectCard
                               project={project}
-                              onEdit={(p) => {
-                                setEditingProject(p);
-                                setShowProjectForm(true);
-                              }}
-                              onDelete={handleDeleteProject}
                               onView={(p) => navigate(`/projects/${p.id}`)}
                             />
                           </motion.div>
@@ -496,30 +246,9 @@ export default function DashboardPage() {
                     >
                       View All
                     </Button>
-                    <Button onClick={() => setShowConfidentForm(true)}>
-                      Add Confident
-                    </Button>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <AnimatePresence>
-                    {showConfidentForm && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                      >
-                        <ConfidentForm
-                          onSubmit={handleConfidentForm}
-                          onCancel={() => {
-                            setShowConfidentForm(false);
-                            setEditingConfident(null);
-                          }}
-                          initialValue={editingConfident || undefined}
-                        />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                   {confidents.length === 0 ? (
                     <p className="text-muted-foreground">
                       No confidents found. Add your first confident to get
@@ -546,11 +275,6 @@ export default function DashboardPage() {
                           >
                             <ConfidentCard
                               confident={confident}
-                              onEdit={(c) => {
-                                setEditingConfident(c);
-                                setShowConfidentForm(true);
-                              }}
-                              onDelete={handleDeleteConfident}
                               onView={(c) => navigate(`/confidents/${c.id}`)}
                             />
                           </motion.div>
@@ -575,30 +299,9 @@ export default function DashboardPage() {
                     <Button variant="outline" onClick={() => navigate("/tags")}>
                       View All
                     </Button>
-                    <Button onClick={() => setShowTagForm(true)}>
-                      Add Tag
-                    </Button>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <AnimatePresence>
-                    {showTagForm && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                      >
-                        <TagForm
-                          onSubmit={handleTagForm}
-                          onCancel={() => {
-                            setShowTagForm(false);
-                            setEditingTag(null);
-                          }}
-                          initialValue={editingTag || undefined}
-                        />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                   {tags.length === 0 ? (
                     <p className="text-muted-foreground">
                       No tags found. Create your first tag to get started.
@@ -624,11 +327,6 @@ export default function DashboardPage() {
                           >
                             <TagCard
                               tag={tag}
-                              onEdit={(t) => {
-                                setEditingTag(t);
-                                setShowTagForm(true);
-                              }}
-                              onDelete={handleDeleteTag}
                               onView={(t) => navigate(`/tags/${t.id}`)}
                             />
                           </motion.div>

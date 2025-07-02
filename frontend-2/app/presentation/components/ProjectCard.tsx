@@ -8,21 +8,21 @@ import {
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Pencil, Trash, Eye } from "lucide-react";
+import { useNavigation } from "react-router";
 import type { Project, Confident, Tag } from "../../shared-kernel";
 
 interface ProjectCardProps {
   project: Project;
-  onEdit: (project: Project) => void;
-  onDelete: (id: number) => void;
+  onEdit?: (project: Project) => void;
   onView?: (project: Project) => void;
 }
 
 const ProjectCard: React.FC<ProjectCardProps> = ({
   project,
   onEdit,
-  onDelete,
   onView,
 }) => {
+  const navigation = useNavigation();
   const visibleConfidents = (project.confidents || [])
     .filter((c) => c && c.name)
     .slice(0, 3);
@@ -102,16 +102,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
               <Eye className="size-4" />
             </Button>
           )}
-          <Button variant="ghost" size="icon" onClick={() => onEdit(project)}>
-            <Pencil className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onDelete(project.id)}
-          >
-            <Trash className="size-4 text-destructive" />
-          </Button>
+          {onEdit && (
+            <Button variant="ghost" size="icon" onClick={() => onEdit(project)}>
+              <Pencil className="size-4" />
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

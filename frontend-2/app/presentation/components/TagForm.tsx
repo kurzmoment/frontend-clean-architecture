@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useNavigation } from "react-router";
 import {
   Card,
   CardContent,
@@ -37,6 +38,7 @@ export default function TagForm({
   initialValue,
 }: TagFormProps) {
   const isEditing = !!initialValue;
+  const navigation = useNavigation();
   const schema = isEditing ? UpdateTagSchema : FormTagSchema;
 
   const form = useForm<CreateTagRequest | UpdateTagRequest>({
@@ -57,7 +59,8 @@ export default function TagForm({
   }, [initialValue, form]);
 
   const handleSubmit = (data: CreateTagRequest | UpdateTagRequest) => {
-    onSubmit(data, initialValue?.id);
+    // For SSR actions, we'll use the form submission instead of calling onSubmit
+    // The form will be submitted via method="post" and handled by the action
   };
 
   return (
@@ -72,10 +75,16 @@ export default function TagForm({
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(handleSubmit)}
-              className="space-y-6"
-            >
+            <form method="post" className="space-y-6">
+              {/* Hidden inputs for SSR action */}
+              <input
+                type="hidden"
+                name="intent"
+                value={isEditing ? "update" : "create"}
+              />
+              {isEditing && (
+                <input type="hidden" name="id" value={initialValue.id} />
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
@@ -110,8 +119,16 @@ export default function TagForm({
                 <Button type="button" variant="secondary" onClick={onCancel}>
                   Cancel
                 </Button>
-                <Button type="submit" variant="default">
-                  {initialValue ? "Save Changes" : "Create Tag"}
+                <Button
+                  type="submit"
+                  variant="default"
+                  disabled={navigation.state === "submitting"}
+                >
+                  {navigation.state === "submitting"
+                    ? "Saving..."
+                    : initialValue
+                    ? "Save Changes"
+                    : "Create Tag"}
                 </Button>
               </div>
             </form>

@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useNavigation, useSubmit } from "react-router";
 import type { Confident, Tag, Project } from "../../shared-kernel";
 import {
   Card,
@@ -33,10 +34,6 @@ import type {
 } from "../../shared-kernel";
 
 interface ProjectFormProps {
-  onSubmit: (
-    data: CreateProjectRequest | UpdateProjectRequest,
-    id?: number
-  ) => void;
   onCancel: () => void;
   confidents: Confident[];
   tags: Tag[];
@@ -44,13 +41,14 @@ interface ProjectFormProps {
 }
 
 export default function ProjectForm({
-  onSubmit,
   onCancel,
   confidents,
   tags,
   initialValue,
 }: ProjectFormProps) {
   const isEditing = !!initialValue;
+  const navigation = useNavigation();
+  const submit = useSubmit();
   const schema = isEditing ? UpdateProjectSchema : CreateProjectSchema;
 
   const form = useForm<CreateProjectRequest | UpdateProjectRequest>({
@@ -75,7 +73,39 @@ export default function ProjectForm({
   }, [initialValue, form]);
 
   const handleSubmit = (data: CreateProjectRequest | UpdateProjectRequest) => {
-    onSubmit(data, initialValue?.id);
+    // Create FormData to submit to the action
+
+    const formData = new FormData();
+    formData.append("intent", isEditing ? "update" : "create");
+
+    if (isEditing && initialValue) {
+      formData.append("id", initialValue.id.toString());
+    }
+
+    if (data.name !== undefined) {
+      formData.append("name", data.name);
+    }
+
+    if (data.description !== undefined) {
+      formData.append("description", data.description);
+    }
+
+    // Add confident IDs
+    if (data.confident_ids) {
+      data.confident_ids.forEach((id) => {
+        formData.append("confident_ids", id.toString());
+      });
+    }
+
+    // Add tag IDs
+    if (data.tag_ids) {
+      data.tag_ids.forEach((id) => {
+        formData.append("tag_ids", id.toString());
+      });
+    }
+
+    // Submit the form data using React Router's submit
+    submit(formData, { method: "post", action: "/projects" });
   };
 
   return (
@@ -141,72 +171,43 @@ export default function ProjectForm({
                     <FormItem>
                       <FormLabel>Confidents</FormLabel>
                       <FormControl>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="w-full justify-between"
+                        <div className="space-y-2">
+                          {confidents.map((confident) => (
+                            <div
+                              key={confident.id}
+                              className="flex items-center gap-2"
                             >
-                              {field.value && field.value.length > 0 ? (
-                                <span className="flex flex-wrap gap-1">
-                                  {field.value.map((id) => {
-                                    const c = confidents.find(
-                                      (c) => c.id === id
+                              <Checkbox
+                                id={`confident-${confident.id}`}
+                                checked={
+                                  field.value?.includes(confident.id) || false
+                                }
+                                onCheckedChange={(checked) => {
+                                  const currentValue = field.value || [];
+                                  if (checked) {
+                                    field.onChange([
+                                      ...currentValue,
+                                      confident.id,
+                                    ]);
+                                  } else {
+                                    field.onChange(
+                                      currentValue.filter(
+                                        (id) => id !== confident.id
+                                      )
                                     );
-                                    return c ? (
-                                      <Badge key={id} variant="secondary">
-                                        {c.name}
-                                      </Badge>
-                                    ) : null;
-                                  })}
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground">
-                                  Select confidents
-                                </span>
-                              )}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-64 max-h-60 overflow-y-auto p-2">
-                            {confidents.map((confident) => (
-                              <div
-                                key={confident.id}
-                                className="flex items-center gap-2 py-1 px-2 rounded-md transition-colors hover:bg-accent/40 cursor-pointer"
-                              >
-                                <Checkbox
-                                  id={`confident-${confident.id}`}
-                                  checked={
-                                    field.value?.includes(confident.id) || false
                                   }
-                                  onCheckedChange={(checked) => {
-                                    const currentIds = field.value || [];
-                                    if (checked) {
-                                      field.onChange([
-                                        ...currentIds,
-                                        confident.id,
-                                      ]);
-                                    } else {
-                                      field.onChange(
-                                        currentIds.filter(
-                                          (id) => id !== confident.id
-                                        )
-                                      );
-                                    }
-                                  }}
-                                />
-                                <label
-                                  htmlFor={`confident-${confident.id}`}
-                                  className="cursor-pointer"
-                                >
-                                  {confident.name}
-                                  {confident.company &&
-                                    ` (${confident.company})`}
-                                </label>
-                              </div>
-                            ))}
-                          </PopoverContent>
-                        </Popover>
+                                }}
+                              />
+                              <label
+                                htmlFor={`confident-${confident.id}`}
+                                className="cursor-pointer text-sm"
+                              >
+                                {confident.name}
+                                {confident.company && ` (${confident.company})`}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -220,69 +221,42 @@ export default function ProjectForm({
                     <FormItem>
                       <FormLabel>Tags</FormLabel>
                       <FormControl>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="w-full justify-between"
+                        <div className="space-y-2">
+                          {tags.map((tag) => (
+                            <div
+                              key={tag.id}
+                              className="flex items-center gap-2"
                             >
-                              {field.value && field.value.length > 0 ? (
-                                <span className="flex flex-wrap gap-1">
-                                  {field.value.map((id) => {
-                                    const t = tags.find((t) => t.id === id);
-                                    return t ? (
-                                      <Badge
-                                        key={id}
-                                        style={{
-                                          backgroundColor: t.color || undefined,
-                                          color: "#fff",
-                                        }}
-                                      >
-                                        {t.name}
-                                      </Badge>
-                                    ) : null;
-                                  })}
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground">
-                                  Select tags
-                                </span>
-                              )}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-64 max-h-60 overflow-y-auto p-2">
-                            {tags.map((tag) => (
-                              <div
-                                key={tag.id}
-                                className="flex items-center gap-2 py-1 px-2 rounded-md transition-colors hover:bg-accent/40 cursor-pointer"
-                              >
-                                <Checkbox
-                                  id={`tag-${tag.id}`}
-                                  checked={
-                                    field.value?.includes(tag.id) || false
+                              <Checkbox
+                                id={`tag-${tag.id}`}
+                                checked={field.value?.includes(tag.id) || false}
+                                onCheckedChange={(checked) => {
+                                  const currentValue = field.value || [];
+                                  if (checked) {
+                                    field.onChange([...currentValue, tag.id]);
+                                  } else {
+                                    field.onChange(
+                                      currentValue.filter((id) => id !== tag.id)
+                                    );
                                   }
-                                  onCheckedChange={(checked) => {
-                                    const currentIds = field.value || [];
-                                    if (checked) {
-                                      field.onChange([...currentIds, tag.id]);
-                                    } else {
-                                      field.onChange(
-                                        currentIds.filter((id) => id !== tag.id)
-                                      );
-                                    }
+                                }}
+                              />
+                              <label
+                                htmlFor={`tag-${tag.id}`}
+                                className="cursor-pointer text-sm"
+                              >
+                                <Badge
+                                  style={{
+                                    backgroundColor: tag.color || undefined,
+                                    color: "#fff",
                                   }}
-                                />
-                                <label
-                                  htmlFor={`tag-${tag.id}`}
-                                  className="cursor-pointer"
                                 >
                                   {tag.name}
-                                </label>
-                              </div>
-                            ))}
-                          </PopoverContent>
-                        </Popover>
+                                </Badge>
+                              </label>
+                            </div>
+                          ))}
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -299,8 +273,19 @@ export default function ProjectForm({
                 >
                   Cancel
                 </Button>
-                <Button type="submit" variant="default" className="px-6">
-                  {initialValue ? "Save Changes" : "Create Project"}
+                <Button
+                  type="submit"
+                  variant="default"
+                  className="px-6"
+                  disabled={navigation.state === "submitting"}
+                >
+                  {navigation.state === "submitting"
+                    ? initialValue
+                      ? "Saving..."
+                      : "Creating..."
+                    : initialValue
+                    ? "Save Changes"
+                    : "Create Project"}
                 </Button>
               </div>
             </form>

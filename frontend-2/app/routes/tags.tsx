@@ -3,7 +3,10 @@ import {
   Link,
   useLoaderData,
   useNavigate,
+  useActionData,
+  useNavigation,
   type LoaderFunctionArgs,
+  type ActionFunctionArgs,
   redirect,
 } from "react-router";
 import { useAuthenticate } from "../presentation/hooks/use-authenticate";
@@ -26,13 +29,11 @@ import {
   getServerUser,
   isServerAuthenticated,
 } from "../infrastructure/auth/server-auth";
-import { serverQueryFunctions } from "../infrastructure/query/queries";
-import { useTags } from "../infrastructure/query/queries";
 import {
-  useCreateTag,
-  useUpdateTag,
-  useDeleteTag,
-} from "../infrastructure/query/mutations";
+  serverQueryFunctions,
+  serverMutationFunctions,
+} from "../infrastructure/query/queries";
+import { useTags } from "../infrastructure/query/queries";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   // Check authentication on server
@@ -55,8 +56,57 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 }
 
+export async function action({ request }: ActionFunctionArgs) {
+  // Check authentication on server
+  if (!isServerAuthenticated(request)) {
+    throw redirect("/login");
+  }
+
+  const formData = await request.formData();
+  const intent = formData.get("intent") as string;
+
+  console.log("--------------------------------");
+  console.log("TAGS ACTION - INTENT:", intent);
+  console.log("--------------------------------");
+
+  try {
+    switch (intent) {
+      case "create":
+        await serverMutationFunctions.createTag(request);
+        return { success: true, message: "Tag created successfully" };
+
+      case "update":
+        const updateId = parseInt(formData.get("id") as string);
+        if (isNaN(updateId)) {
+          throw new Error("Invalid tag ID");
+        }
+        await serverMutationFunctions.updateTag(request, updateId);
+        return { success: true, message: "Tag updated successfully" };
+
+      case "delete":
+        const deleteId = parseInt(formData.get("id") as string);
+        if (isNaN(deleteId)) {
+          throw new Error("Invalid tag ID");
+        }
+        await serverMutationFunctions.deleteTag(request, deleteId);
+        return { success: true, message: "Tag deleted successfully" };
+
+      default:
+        throw new Error("Invalid action intent");
+    }
+  } catch (error) {
+    console.error("Action error:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "An error occurred",
+    };
+  }
+}
+
 export default function TagsPage() {
   const loaderData = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
   const { tags: initialTags, user: serverUser } = loaderData;
 
   const [showTagForm, setShowTagForm] = useState(false);
@@ -68,13 +118,22 @@ export default function TagsPage() {
   const navigate = useNavigate();
   const notifier = useNotifier();
 
+  // Show action result if available
+  React.useEffect(() => {
+    if (actionData) {
+      if (actionData.success) {
+        notifier.success(actionData.message);
+        // Close form on success
+        setShowTagForm(false);
+        setEditingTag(null);
+      } else {
+        notifier.error(actionData.message);
+      }
+    }
+  }, [actionData, notifier]);
+
   // TanStack Query hooks
   const { data: tags = initialTags, isLoading } = useTags();
-
-  // Mutation hooks
-  const createTagMutation = useCreateTag();
-  const updateTagMutation = useUpdateTag();
-  const deleteTagMutation = useDeleteTag();
 
   // Use server user or fallback to client user
   const user = useMemo(() => {
@@ -98,33 +157,13 @@ export default function TagsPage() {
     data: CreateTagRequest | UpdateTagRequest,
     id?: number
   ) => {
-    try {
-      if (id) {
-        await updateTagMutation.mutateAsync({
-          id,
-          data: data as UpdateTagRequest,
-        });
-        notifier.success("Tag updated successfully!");
-        setEditingTag(null);
-      } else {
-        await createTagMutation.mutateAsync(data as CreateTagRequest);
-        notifier.success("Tag created successfully!");
-      }
-      setShowTagForm(false);
-    } catch (error) {
-      console.error("Tag operation failed:", error);
-      notifier.error("Failed to save tag");
-    }
+    // This function is no longer used since we're using SSR actions
+    // The form submission is handled by the action function
   };
 
   const handleDeleteTag = async (id: number) => {
-    try {
-      await deleteTagMutation.mutateAsync(id);
-      notifier.success("Tag deleted successfully!");
-    } catch (error) {
-      console.error("Failed to delete tag:", error);
-      notifier.error("Failed to delete tag");
-    }
+    // This function is no longer used since we're using SSR actions
+    // The delete is handled by the action function
   };
 
   const handleViewTag = (tag: Tag) => {

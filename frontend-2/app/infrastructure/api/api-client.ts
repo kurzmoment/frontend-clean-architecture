@@ -3,8 +3,7 @@ const isServer = typeof window === "undefined";
 
 // Use different base URLs for server and client
 const API_BASE_URL = isServer
-  ? // ? "http://localhost:5001/api" // Backend server URL for SSR
-    "https://d24f-78-108-103-98.ngrok-free.app/api"
+  ? "http://localhost:5001/api" // Backend server URL for SSR
   : "/api"; // Relative URL for client (uses Vite proxy)
 
 export interface ApiResponse<T> {
