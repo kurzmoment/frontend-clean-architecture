@@ -118,7 +118,6 @@ export default function ProjectsPage() {
   const queryClient = useQueryClient();
   const loaderData = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
-  const navigation = useNavigation();
   const revalidator = useRevalidator();
   const { projects: initialProjects, user: serverUser } = loaderData;
 
@@ -192,8 +191,6 @@ export default function ProjectsPage() {
       </div>
     );
   }
-
-  console.log("projects", projects);
 
   return (
     <div className="min-h-screen bg-background">

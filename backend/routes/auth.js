@@ -46,9 +46,19 @@ router.post("/register", async (req, res) => {
               { expiresIn: "7d" }
             );
 
-            // Set cookies
+            // Set HTTP-only cookie for security (server-side access only)
             res.cookie("authToken", token, {
-              httpOnly: true,
+              httpOnly: true, // Secure - not accessible via JavaScript
+              secure: process.env.NODE_ENV === "production",
+              sameSite:
+                process.env.NODE_ENV === "production" ? "strict" : "lax",
+              maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+              path: "/",
+            });
+
+            // Set client-accessible cookie for frontend state management
+            res.cookie("authStatus", "authenticated", {
+              httpOnly: false, // Accessible via JavaScript
               secure: process.env.NODE_ENV === "production",
               sameSite:
                 process.env.NODE_ENV === "production" ? "strict" : "lax",
@@ -110,9 +120,18 @@ router.post("/login", (req, res) => {
       { expiresIn: "7d" }
     );
 
-    // Set cookies
+    // Set HTTP-only cookie for security (server-side access only)
     res.cookie("authToken", token, {
-      httpOnly: true,
+      httpOnly: true, // Secure - not accessible via JavaScript
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: "/",
+    });
+
+    // Set client-accessible cookie for frontend state management
+    res.cookie("authStatus", "authenticated", {
+      httpOnly: false, // Accessible via JavaScript
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
@@ -151,6 +170,7 @@ router.get("/me", authenticateToken, (req, res) => {
 // Logout
 router.post("/logout", (req, res) => {
   res.clearCookie("authToken");
+  res.clearCookie("authStatus");
   res.clearCookie("user");
   res.json({ message: "Logged out successfully" });
 });

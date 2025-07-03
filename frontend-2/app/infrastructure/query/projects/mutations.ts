@@ -222,7 +222,30 @@ export const projectServerMutationFunctions = {
     };
 
     const projectRepository = createProjectRepository(request);
+    const tagsRespository = createTagRepository(request);
+    const confidentsRespository = createConfidentRepository(request);
+
     await serverUpdateExistingProject(id, projectData, projectRepository);
+
+    if (projectData.confident_ids) {
+      for (const confidentId of projectData.confident_ids) {
+        await serverAddConfidentToProject(
+          id,
+          confidentId,
+          projectRepository,
+          confidentsRespository
+        );
+      }
+    }
+
+    if (projectData.tag_ids) {
+      await serverAddTagsToProject(
+        id,
+        projectData.tag_ids,
+        projectRepository,
+        tagsRespository
+      );
+    }
 
     console.log("Project updated successfully via use case");
   },
@@ -258,8 +281,32 @@ export const projectServerMutationFunctions = {
     };
 
     const projectRepository = createProjectRepository(request);
+    const tagsRespository = createTagRepository(request);
+    const confidentsRespository = createConfidentRepository(request);
+
     await serverUpdateExistingProject(id, projectData, projectRepository);
 
+    console.log("projectData", projectData);
+
+    if (projectData.confident_ids) {
+      for (const confidentId of projectData.confident_ids) {
+        await serverAddConfidentToProject(
+          id,
+          confidentId,
+          projectRepository,
+          confidentsRespository
+        );
+      }
+    }
+
+    if (projectData.tag_ids) {
+      await serverAddTagsToProject(
+        id,
+        projectData.tag_ids,
+        projectRepository,
+        tagsRespository
+      );
+    }
     console.log("Project updated successfully via use case");
   },
 

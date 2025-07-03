@@ -179,16 +179,14 @@ router.delete("/:id", authenticateToken, (req, res) => {
   );
 });
 
-// Add confident to project
+// Manage project confidents (add/remove based on frontend data)
 router.post("/:id/confidents", authenticateToken, (req, res) => {
   const userId = req.user.id;
   const projectId = req.params.id;
-  const { confident_id } = req.body;
+  const { confident_ids } = req.body; // Array of confident IDs that should be associated with the project
 
-  console.log("CONFIDENT ID:", confident_id);
-
-  if (!confident_id) {
-    return res.status(400).json({ message: "Confident ID is required" });
+  if (!Array.isArray(confident_ids)) {
+    return res.status(400).json({ message: "confident_ids must be an array" });
   }
 
   // Verify project belongs to user
@@ -200,39 +198,101 @@ router.post("/:id/confidents", authenticateToken, (req, res) => {
         return res.status(404).json({ message: "Project not found" });
       }
 
-      // Verify confident belongs to user
-      db.get(
-        "SELECT id FROM confidents WHERE id = ? AND user_id = ?",
-        [confident_id, userId],
-        (err, confident) => {
-          if (err || !confident) {
-            return res.status(404).json({ message: "Confident not found" });
-          }
-
-          // Add confident to project
-          db.run(
-            "INSERT INTO project_confidents (project_id, confident_id) VALUES (?, ?)",
-            [projectId, confident_id],
-            function (err) {
-              if (err) {
-                if (err.code === "SQLITE_CONSTRAINT") {
-                  return res
-                    .status(400)
-                    .json({ message: "Confident already added to project" });
-                }
-                return res.status(500).json({ message: "Database error" });
-              }
-
-              res.json({ message: "Confident added to project successfully" });
+      // Verify all confidents belong to user
+      if (confident_ids.length > 0) {
+        const placeholders = confident_ids.map(() => "?").join(",");
+        db.all(
+          `SELECT id FROM confidents WHERE id IN (${placeholders}) AND user_id = ?`,
+          [...confident_ids, userId],
+          (err, confidents) => {
+            if (err) {
+              return res.status(500).json({ message: "Database error" });
             }
-          );
-        }
-      );
+            if (confidents.length !== confident_ids.length) {
+              return res.status(400).json({
+                message:
+                  "One or more confidents not found or don't belong to user",
+              });
+            }
+
+            // Start transaction to manage confidents
+            db.serialize(() => {
+              db.run("BEGIN TRANSACTION");
+
+              // Remove all existing confidents for this project
+              db.run(
+                "DELETE FROM project_confidents WHERE project_id = ?",
+                [projectId],
+                function (err) {
+                  if (err) {
+                    db.run("ROLLBACK");
+                    return res.status(500).json({ message: "Database error" });
+                  }
+
+                  // Add new confidents if any
+                  if (confident_ids.length > 0) {
+                    const insertStmt = db.prepare(
+                      "INSERT INTO project_confidents (project_id, confident_id) VALUES (?, ?)"
+                    );
+
+                    let completed = 0;
+                    let hasError = false;
+
+                    confident_ids.forEach((confidentId) => {
+                      insertStmt.run([projectId, confidentId], function (err) {
+                        if (err && !hasError) {
+                          hasError = true;
+                          db.run("ROLLBACK");
+                          return res
+                            .status(500)
+                            .json({ message: "Database error" });
+                        }
+
+                        completed++;
+                        if (completed === confident_ids.length && !hasError) {
+                          insertStmt.finalize();
+                          db.run("COMMIT");
+                          res.json({
+                            message: "Project confidents updated successfully",
+                            confident_ids: confident_ids,
+                          });
+                        }
+                      });
+                    });
+                  } else {
+                    // No confidents to add, just commit the removal
+                    db.run("COMMIT");
+                    res.json({
+                      message: "Project confidents updated successfully",
+                      confident_ids: [],
+                    });
+                  }
+                }
+              );
+            });
+          }
+        );
+      } else {
+        // No confidents provided, just remove all existing confidents
+        db.run(
+          "DELETE FROM project_confidents WHERE project_id = ?",
+          [projectId],
+          function (err) {
+            if (err) {
+              return res.status(500).json({ message: "Database error" });
+            }
+            res.json({
+              message: "Project confidents updated successfully",
+              confident_ids: [],
+            });
+          }
+        );
+      }
     }
   );
 });
 
-// Remove confident from project
+// Remove confident from project (keeping for backward compatibility)
 router.delete(
   "/:id/confidents/:confident_id",
   authenticateToken,
@@ -241,28 +301,41 @@ router.delete(
     const projectId = req.params.id;
     const confidentId = req.params.confident_id;
 
-    db.run(
-      "DELETE FROM project_confidents WHERE project_id = ? AND confident_id = ?",
-      [projectId, confidentId],
-      function (err) {
-        if (err) {
-          return res.status(500).json({ message: "Database error" });
+    // Verify project belongs to user
+    db.get(
+      "SELECT id FROM projects WHERE id = ? AND user_id = ?",
+      [projectId, userId],
+      (err, project) => {
+        if (err || !project) {
+          return res.status(404).json({ message: "Project not found" });
         }
 
-        res.json({ message: "Confident removed from project successfully" });
+        db.run(
+          "DELETE FROM project_confidents WHERE project_id = ? AND confident_id = ?",
+          [projectId, confidentId],
+          function (err) {
+            if (err) {
+              return res.status(500).json({ message: "Database error" });
+            }
+
+            res.json({
+              message: "Confident removed from project successfully",
+            });
+          }
+        );
       }
     );
   }
 );
 
-// Add tag to project
+// Manage project tags (add/remove based on frontend data)
 router.post("/:id/tags", authenticateToken, (req, res) => {
   const userId = req.user.id;
   const projectId = req.params.id;
-  const { tag_id } = req.body;
+  const { tag_ids } = req.body; // Array of tag IDs that should be associated with the project
 
-  if (!tag_id) {
-    return res.status(400).json({ message: "Tag ID is required" });
+  if (!Array.isArray(tag_ids)) {
+    return res.status(400).json({ message: "tag_ids must be an array" });
   }
 
   // Verify project belongs to user
@@ -274,53 +347,125 @@ router.post("/:id/tags", authenticateToken, (req, res) => {
         return res.status(404).json({ message: "Project not found" });
       }
 
-      // Verify tag belongs to user
-      db.get(
-        "SELECT id FROM tags WHERE id = ? AND user_id = ?",
-        [tag_id, userId],
-        (err, tag) => {
-          if (err || !tag) {
-            return res.status(404).json({ message: "Tag not found" });
-          }
-
-          // Add tag to project
-          db.run(
-            "INSERT INTO project_tags (project_id, tag_id) VALUES (?, ?)",
-            [projectId, tag_id],
-            function (err) {
-              if (err) {
-                if (err.code === "SQLITE_CONSTRAINT") {
-                  return res
-                    .status(400)
-                    .json({ message: "Tag already added to project" });
-                }
-                return res.status(500).json({ message: "Database error" });
-              }
-
-              res.json({ message: "Tag added to project successfully" });
+      // Verify all tags belong to user
+      if (tag_ids.length > 0) {
+        const placeholders = tag_ids.map(() => "?").join(",");
+        db.all(
+          `SELECT id FROM tags WHERE id IN (${placeholders}) AND user_id = ?`,
+          [...tag_ids, userId],
+          (err, tags) => {
+            if (err) {
+              return res.status(500).json({ message: "Database error" });
             }
-          );
-        }
-      );
+            if (tags.length !== tag_ids.length) {
+              return res.status(400).json({
+                message: "One or more tags not found or don't belong to user",
+              });
+            }
+
+            // Start transaction to manage tags
+            db.serialize(() => {
+              db.run("BEGIN TRANSACTION");
+
+              // Remove all existing tags for this project
+              db.run(
+                "DELETE FROM project_tags WHERE project_id = ?",
+                [projectId],
+                function (err) {
+                  if (err) {
+                    db.run("ROLLBACK");
+                    return res.status(500).json({ message: "Database error" });
+                  }
+
+                  // Add new tags if any
+                  if (tag_ids.length > 0) {
+                    const insertStmt = db.prepare(
+                      "INSERT INTO project_tags (project_id, tag_id) VALUES (?, ?)"
+                    );
+
+                    let completed = 0;
+                    let hasError = false;
+
+                    tag_ids.forEach((tagId) => {
+                      insertStmt.run([projectId, tagId], function (err) {
+                        if (err && !hasError) {
+                          hasError = true;
+                          db.run("ROLLBACK");
+                          return res
+                            .status(500)
+                            .json({ message: "Database error" });
+                        }
+
+                        completed++;
+                        if (completed === tag_ids.length && !hasError) {
+                          insertStmt.finalize();
+                          db.run("COMMIT");
+                          res.json({
+                            message: "Project tags updated successfully",
+                            tag_ids: tag_ids,
+                          });
+                        }
+                      });
+                    });
+                  } else {
+                    // No tags to add, just commit the removal
+                    db.run("COMMIT");
+                    res.json({
+                      message: "Project tags updated successfully",
+                      tag_ids: [],
+                    });
+                  }
+                }
+              );
+            });
+          }
+        );
+      } else {
+        // No tags provided, just remove all existing tags
+        db.run(
+          "DELETE FROM project_tags WHERE project_id = ?",
+          [projectId],
+          function (err) {
+            if (err) {
+              return res.status(500).json({ message: "Database error" });
+            }
+            res.json({
+              message: "Project tags updated successfully",
+              tag_ids: [],
+            });
+          }
+        );
+      }
     }
   );
 });
 
-// Remove tag from project
+// Remove tag from project (keeping for backward compatibility)
 router.delete("/:id/tags/:tag_id", authenticateToken, (req, res) => {
   const userId = req.user.id;
   const projectId = req.params.id;
   const tagId = req.params.tag_id;
 
-  db.run(
-    "DELETE FROM project_tags WHERE project_id = ? AND tag_id = ?",
-    [projectId, tagId],
-    function (err) {
-      if (err) {
-        return res.status(500).json({ message: "Database error" });
+  // Verify project belongs to user
+  db.get(
+    "SELECT id FROM projects WHERE id = ? AND user_id = ?",
+    [projectId, userId],
+    (err, project) => {
+      if (err || !project) {
+        return res.status(404).json({ message: "Project not found" });
       }
 
-      res.json({ message: "Tag removed from project successfully" });
+      db.run(
+        "DELETE FROM project_tags WHERE project_id = ? AND tag_id = ?",
+        [projectId, tagId],
+        function (err) {
+          if (err) {
+            return res.status(500).json({ message: "Database error" });
+          }
+
+          res.json({ message: "Tag removed from project successfully" });
+        }
+      );
     }
   );
 });

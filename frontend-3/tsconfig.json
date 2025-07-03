@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ES6"],
+    "module": "ESNext",
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "types": ["vitest/globals", "@testing-library/jest-dom"],
+    "paths": {
+      "@/*": ["app/*"],
+      "@/domain/*": ["app/domain/*"],
+      "@/application/*": ["app/application/*"],
+      "@/infrastructure/*": ["app/infrastructure/*"],
+      "@/presentation/*": ["app/presentation/*"],
+      "@/shared-kernel/*": ["app/shared-kernel/*"]
+    }
+  },
+  "include": ["app/**/*", "tests/**/*"],
+  "exclude": ["node_modules"]
+}
